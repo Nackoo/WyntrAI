@@ -1,5 +1,5 @@
 # server.py — run alongside index.html
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, redirect
 from flask_cors import CORS
 import torch, json, random, os
 from model import ChatNet
@@ -44,9 +44,33 @@ def log_activity(message):
     print(f"[LOG] {message}")
 
 # ── Serve the frontend ──────────────────────────────────────────
+ACCESS_PASSWORD = "ithadbetterbetonight" 
+authenticated_ips = set()
+
 @app.route("/")
 def index():
-    return send_file("index.html")
+    client_ip = request.remote_addr
+
+    # 1. Check if they just submitted the password via query param
+    provided_pw = request.args.get("pw")
+    if provided_pw == ACCESS_PASSWORD:
+        authenticated_ips.add(client_ip)
+        return redirect("/")  # Redirect to clear the password from the URL bar
+
+    # 2. Check if this computer is already authenticated in memory
+    if client_ip in authenticated_ips:
+        return send_file("index.html")
+
+    # 3. Otherwise, return a simple login prompt instead of the app
+    return '''
+        <body style="background:#000;color:#7c6bff;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;margin:15px;">
+        <h1 style="margin-bottom:25px;letter-spacing:-1px;">Wyntr<span style="color:#fff;">AI</span> Access</h1>
+        <form method="GET" style="display:flex;flex-direction:column;gap:12px;align-items:center;">
+            <p style="max-width:700px;line-height:1.5;color:grey;margin-top:0;text-align:center;margin-bottom:15px;font-size:15px;">Authorization is required to prevent malicious requests that might exhaust server resource or ruin AI model.</p>
+            <input type="password" name="pw" placeholder="Enter Password" autofocus="" style="padding:12px;border-radius:8px;border:1px solid #2f3336;background:#101010;color:#fff;outline:none;width:260px;text-align:center;">
+            <button type="submit" style="padding:12px 24px;background:#7c6bff;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;width:260px;">Unlock Interface</button>
+        </form>
+    ''', 401
 
 @app.route("/predict", methods=["POST"])
 def predict():
