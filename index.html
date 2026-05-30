@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WyntrAI</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #000000;
+    --surface: #080808;
+    --surface2: #101010;
+    --border: #2f3336;
+    --accent: #7c6bff;
+    --accent2: #ff6b9d;
+    --accent3: #6bffd8;
+    --text: #e8e8ff;
+    --muted: #6b6b8a;
+    --pos: #6bffd8;
+    --neg: #ff6b6b;
+    --zero: #3a3a55;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: 'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  input {
+    font-family: var(--font-mono);
+  }
+
+  input:focus {
+    outline: 1px solid var(--text);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,107,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,107,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 28px 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  header h1 {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  header h1 span { color: var(--accent); }
+  .subtitle { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 0.05em; }
+
+  .badge {
+    font-size: 10px; padding: 4px 10px; border-radius: 20px;
+    border: 1px solid; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .badge-purple { border-color: var(--accent); color: var(--accent); }
+  .badge-teal   { border-color: var(--accent3); color: var(--accent3); }
+  .badge-pink   { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── Tab bar ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+  }
+  .tab {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ── Panels ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 10px 16px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  button:hover { opacity: 0.88; transform: translateY(-1px); }
+  button:active { transform: scale(0.98); }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ═══════════════════════════════════════════════
+     CHAT TAB
+  ═══════════════════════════════════════════════ */
+  .chat-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Chat window */
+  .chat-window {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+  }
+
+  .chat-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bot-avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  .chat-status {
+    font-size: 10px;
+    color: var(--accent3);
+    letter-spacing: 0.06em;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+
+  .msg {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    animation: msgIn 0.25s ease;
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user { flex-direction: row-reverse; }
+
+  .msg-bubble {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .msg.bot .msg-bubble {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 3px;
+  }
+  .msg.user .msg-bubble {
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 3px;
+  }
+
+  .msg-meta {
+    font-size: 9px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .msg.user .msg-meta { text-align: right; }
+
+  .msg-tag {
+    font-size: 9px;
+    color: var(--accent3);
+    margin-top: 4px;
+    letter-spacing: 0.06em;
+  }
+
+  .msg-avatar {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .msg.user .msg-avatar {
+    background: rgba(124,107,255,0.2);
+    border-color: rgba(124,107,255,0.3);
+  }
+
+  .typing-indicator {
+    display: flex; gap: 4px; align-items: center; padding: 4px 0;
+  }
+  .typing-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted);
+    animation: typingBounce 1.2s ease-in-out infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  .chat-input-area {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .chat-input-area textarea {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 10px 12px;
+    resize: none;
+    min-height: 40px;
+    max-height: 100px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .chat-input-area textarea:focus { border-color: var(--accent); }
+  .chat-input-area textarea::placeholder { color: var(--muted); }
+
+  .send-btn {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  /* Right sidebar: intent live panel */
+  .intent-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  .confidence-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+
+  .conf-row { display: flex; flex-direction: column; gap: 3px; }
+  .conf-label-row { display: flex; justify-content: space-between; font-size: 11px; }
+  .conf-name { color: var(--text); }
+  .conf-pct  { color: var(--muted); }
+  .bar-track { height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+  .bar-fill.top { background: var(--accent3); }
+
+  .token-cloud { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+  .token {
+    font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid;
+    transition: all 0.3s;
+  }
+  .token-active   { border-color: var(--accent3); color: var(--accent3); background: rgba(107,255,216,0.08); }
+  .token-inactive { border-color: var(--border); color: var(--muted); }
+
+  .server-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; padding: 8px 12px;
+    background: var(--surface2); border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.online  { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+  .status-dot.offline { background: var(--neg); }
+  .status-dot.checking { background: var(--accent2); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ═══════════════════════════════════════════════
+     VISUALIZER TAB  (unchanged from original)
+  ═══════════════════════════════════════════════ */
+  .vis-layout {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  textarea.vis-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 12px;
+    resize: vertical;
+    min-height: 80px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea.vis-input:focus { border-color: var(--accent); }
+  textarea.vis-input::placeholder { color: var(--muted); }
+
+  .input-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .bow-tokens { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .tag-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .tag-row { display: flex; flex-direction: column; gap: 3px; }
+  .tag-label-row { display: flex; justify-content: space-between; font-size: 11px; }
+  .tag-name { color: var(--text); }
+  .tag-pct  { color: var(--muted); }
+
+  .nn-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    overflow: hidden;
+  }
+  .canvas-wrap { position: relative; overflow-x: auto; }
+  canvas { display: block; border-radius: 8px; background: var(--surface2); }
+
+  .layer-labels { display: flex; justify-content: space-around; margin-top: 10px; padding: 0 10px; }
+  .layer-label { font-size: 10px; color: var(--muted); text-align: center; letter-spacing: 0.06em; }
+  .layer-label b { display: block; font-size: 11px; color: var(--text); margin-bottom: 2px; font-weight: 600; }
+
+  .matrix-section { margin-top: 20px; }
+  .matrix-title {
+    font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .matrix-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .matrix-grid { display: grid; gap: 2px; }
+  .matrix-cell { height: 14px; border-radius: 2px; transition: background 0.4s; }
+
+  .equation {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; margin-top: 16px;
+    font-size: 12px; line-height: 1.8; color: var(--muted);
+  }
+  .equation .highlight { color: var(--accent); }
+  .equation .eq-val    { color: var(--accent3); font-weight: 600; }
+  .equation .eq-op     { color: var(--accent2); }
+
+  .step-trace { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .step {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 8px 12px; background: var(--surface2); border-radius: 6px;
+    border-left: 2px solid var(--border); font-size: 11px; transition: border-color 0.3s;
+  }
+  .step.active { border-left-color: var(--accent); }
+  .step-num  { color: var(--accent); font-weight: 600; min-width: 14px; }
+  .step-desc { color: var(--muted); }
+  .step-val  { color: var(--accent3); font-weight: 600; margin-left: auto; }
+
+  .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Page visibility ── */
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div>
+      <h1>Wyntr<span>AI</span></h1>
+      <p class="subtitle">Neural Chatbot training</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="badge badge-purple">3-layer FFN</span>
+      <span class="badge badge-pink">PyTorch</span>
+    </div>
+  </header>
+
+  <!-- Chat removed — use Visualizer for input and responses -->
+
+  <!-- ═══ VISUALIZER PAGE ═══ -->
+  <div data-page="vis">
+    <div class="vis-layout">
+
+      <!-- Left sidebar -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <div class="panel">
+          <p class="panel-title">Conversation</p>
+          <div id="convWrap" style="display:flex;flex-direction:column;gap:8px;">
+            <div id="convMessages" class="chat-messages" style="max-height:200px;overflow:auto;padding:10px;background:var(--surface2);border-radius:8px;">
+              <div class="msg bot"><div class="msg-avatar">🤖</div><div><div class="msg-bubble">Connecting to server and loading real weights…</div><div class="msg-meta">Bot · now</div></div></div>
+            </div>
+            <textarea class="vis-input" id="inputText" placeholder="Type a message… (Enter to send)" rows="2"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendFromInput();}"></textarea>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="secondary" onclick="randomSentence()">⟳ Random</button>
+              <button class="secondary" id="teachBtn" onclick="toggleTeachForm()">✎ Teach</button>
+              <button class="secondary" id="retrainBtn" onclick="retrainModel()">⟳ Retrain</button>
+              <br>
+            </div>
+
+            <div id="teachForm" style="display:none;margin-top:8px;">
+              <input id="teachPattern" placeholder="User pattern" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:6px;">
+              <input id="teachTag" placeholder="Tag (optional)" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:6px;">
+              <input id="teachResponse" placeholder="Response" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:6px;">
+              <div style="display:flex;gap:8px;margin-top:10px;"><button onclick="submitTeach()">Save</button><button class="secondary" onclick="toggleTeachForm()">Cancel</button></div>
+            </div>
+            
+            <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);">
+              <div class="status-dot checking" id="visStatusDot" style="width:9px;height:9px;border-radius:50%;flex-shrink:0"></div>
+              <div id="visStatusLabel">Checking…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="approvalPanel" style="display:none;">
+          <p class="panel-title">Approve Classification</p>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="font-size:11px;color:var(--muted);">Pending prediction:</div>
+            <div style="padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+              <div id="pendingMessage" style="font-size:12px;color:var(--text);margin-bottom:6px;font-style:italic;"></div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);">Predicted tag (editable):</div>
+            <input id="approvalTagInput" type="text" placeholder="Tag" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font-mono);margin-bottom:8px;">
+            <div style="display:flex;gap:8px;">
+              <button onclick="approveClassification()" style="flex:1;">✓ Approve</button>
+              <button class="secondary" onclick="rejectClassification()" style="flex:1;">✗ Reject</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Bag-of-words encoding</p>
+          <div id="bowTokens" class="bow-tokens">
+            <span style="color:var(--muted);font-size:11px;">Run a forward pass to see tokens</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Output probabilities</p>
+          <div id="tagBars" class="tag-bars">
+            <span style="color:var(--muted);font-size:11px;">Run a forward pass to see scores</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Forward pass trace</p>
+          <div id="stepTrace" class="step-trace">
+            <div class="step"><span class="step-num">—</span><span class="step-desc">Awaiting input…</span></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Stats</p>
+          <div id="visStats" style="font-size:12px;color:var(--muted);">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="nn-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <p class="panel-title" style="margin:0;">Network architecture</p>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--pos)"></div>positive</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--neg)"></div>negative</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--zero)"></div>zero</div>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="nnCanvas" width="900" height="420"></canvas>
+        </div>
+        <div class="layer-labels" id="layerLabels">
+          <div class="layer-label"><b>Input</b>BOW vector<br><span id="lbl-input">—</span></div>
+          <div class="layer-label"><b>Hidden 1</b>Linear + ReLU<br><span id="lbl-h1">64 units</span></div>
+          <div class="layer-label"><b>Hidden 2</b>Linear + ReLU<br><span id="lbl-h2">64 units</span></div>
+          <div class="layer-label"><b>Output</b>Softmax<br><span id="lbl-out">—</span></div>
+        </div>
+        <div class="matrix-section">
+          <p class="matrix-title">W₁ weight matrix (input → hidden 1) — first 20×20 slice</p>
+          <div id="weightMatrix" class="matrix-grid" style="grid-template-columns:repeat(20,1fr);"></div>
+        </div>
+        <div class="equation" id="equation">
+          <span style="color:var(--text);">y = softmax( W₃ · ReLU( W₂ · ReLU( W₁ · <span class="highlight">x</span> + b₁ ) + b₂ ) + b₃ )</span><br><br>
+          <span class="highlight">x</span> = bag-of-words vector &nbsp;·&nbsp; Run a forward pass to see live values.
+        </div>
+        <div class="panel" style="margin-top:15px;">
+          <p class="panel-title">Activity logs</p>
+          <div id="visLogs" style="font-size:11px;color:var(--muted);max-height:200px;overflow-y:auto;">
+            <div style="color:var(--muted);">Waiting for activity…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /vis -->
+</div><!-- /shell -->
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// MODEL STATE — starts with hardcoded demo weights.
+// Call loadRealWeights() or send a chat message to pull from server.
+// ══════════════════════════════════════════════════════════════
+
+let VOCAB = [
+  "are","bye","call","do","feel","goodbye","good","hello","hey","hi",
+  "how","later","morning","much","name","okay","see","should","take",
+  "thank","thanks","thx","what","who","you","your"
+];
+let TAGS  = ["farewell","greeting","how_are_you","name","thanks"];
+const HIDDEN = 64;
+
+function lcg(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s / 0x80000000) - 1; };
+}
+function makeMatrix(rows, cols, seed) {
+  const rng = lcg(seed), scale = Math.sqrt(2 / cols);
+  return Array.from({length: rows}, () => Array.from({length: cols}, () => rng() * scale));
+}
+function makeBias(size) { return Array(size).fill(0); }
+
+let W1 = makeMatrix(HIDDEN, VOCAB.length, 42);
+let b1 = makeBias(HIDDEN);
+let W2 = makeMatrix(HIDDEN, HIDDEN, 99);
+let b2 = makeBias(HIDDEN);
+let W3 = makeMatrix(TAGS.length, HIDDEN, 7);
+let b3 = makeBias(TAGS.length);
+let usingRealWeights = false;
+
+// ── Server communication ───────────────────────────────────────
+const SERVER = window.location.origin;
+let serverOnline = false;
+let lastUserMessage = null;  // Track current message awaiting approval
+let lastPredictedTag = null; // Track current prediction awaiting approval
+let pendingApprovals = [];  // Queue of pending approvals
+
+async function checkServer() {
+  const dot   = document.getElementById('visStatusDot') || document.getElementById('statusDot');
+  const label = document.getElementById('visStatusLabel') || document.getElementById('statusLabel');
+  const status = document.getElementById('visBotResponse');
+  const wasOnline = serverOnline;
+  if (dot) dot.className = 'status-dot checking';
+  if (label) label.textContent = 'Checking…';
+  try {
+    const r = await fetch(`${SERVER}/weights`, {signal: AbortSignal.timeout(3000)});
+    if (r.ok) {
+      serverOnline = true;
+      if (dot) dot.className = 'status-dot online';
+      if (label) label.textContent = 'Connected';
+      if (status) status.style.color = 'var(--accent3)';
+      // Auto-load real weights when server is available
+      if (!usingRealWeights) loadRealWeights();
+    } else { throw new Error(); }
+  } catch {
+    serverOnline = false;
+    if (dot) dot.className = 'status-dot offline';
+    if (label) label.textContent = 'Offline';
+    if (status) status.style.color = 'var(--neg)';
+  }
+}
+
+async function fetchLogs() {
+  try {
+    const r = await fetch(`${SERVER}/logs`);
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    const el = document.getElementById('visLogs');
+    if (!el || !data.logs) return;
+    el.innerHTML = data.logs.length > 0
+      ? data.logs.map(log => `<div style="margin-bottom:6px;"><span style="color:var(--accent2)">${log.time}</span> <span style="color:var(--text)">${log.msg}</span></div>`).join('')
+      : '<div style="color:var(--muted);">No activity yet</div>';
+    el.scrollTop = el.scrollHeight;
+  } catch (e) {
+    const el = document.getElementById('visLogs');
+    if (el) el.textContent = 'Logs unavailable';
+  }
+}
+
+async function loadRealWeights() {
+  try {
+    const r = await fetch(`${SERVER}/weights`);
+    if (!r.ok) throw new Error();
+    const sd = await r.json();
+
+    // Parse PyTorch state_dict tensor arrays
+    // network.0.weight = W1, network.0.bias = b1, etc.
+    const get = key => {
+      const v = sd[key];
+      // Could be nested array or flat; normalize
+      if (Array.isArray(v[0])) return v;       // already 2-D
+      return v;                                 // 1-D bias
+    };
+
+    W1 = get('network.0.weight');
+    b1 = get('network.0.bias');
+    W2 = get('network.3.weight');
+    b2 = get('network.3.bias');
+    W3 = get('network.6.weight');
+    b3 = get('network.6.bias');
+    VOCAB = sd.all_words;
+    TAGS  = sd.tags;
+    usingRealWeights = true;
+
+    // Update layer sizes display
+    document.getElementById('lbl-input').textContent = `${VOCAB.length} dims`;
+    document.getElementById('lbl-out').textContent   = `${TAGS.length} classes`;
+
+    renderWeightMatrix();
+    runForwardPass(false);
+    console.log('✓ Loaded real weights from server');
+  } catch(e) {
+    alert('Could not load weights. Make sure python server.py is running.');
+  }
+}
+
+// ── Visualizer response helpers ─────────────────────────────────
+async function checkPatternExists(sentence, tag) {
+  /**Check if pattern already exists in training data**/
+  if (!serverOnline) return false;
+  try {
+    const r = await fetch(`${SERVER}/check-pattern`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pattern: sentence, tag: tag})
+    });
+    if (r.ok) {
+      const data = await r.json();
+      return data.exists || false;
+    }
+  } catch (e) {
+    // Endpoint may not exist, continue normally
+    console.warn('Check pattern failed', e);
+  }
+  return false;
+}
+
+function displayBotResponse(payload, source = 'server') {
+  const out = document.getElementById('visBotResponse');
+  const response = payload.response || '';
+  const tag = payload.tag || '';
+  const confidence = typeof payload.confidence === 'number' ? payload.confidence : (payload.probs ? Math.max(...payload.probs) : 0);
+  const confPct = (confidence * 100).toFixed(1);
+
+  // Store for approval
+  lastPredictedTag = tag;
+  
+  // Check if pattern already exists before adding to approval queue
+  checkPatternExists(lastUserMessage, tag).then(alreadyExists => {
+    if (!alreadyExists) {
+      pendingApprovals.push({
+        message: lastUserMessage,
+        tag: tag,
+        response: response,
+        confidence: confidence,
+        payload: payload,
+        source: source
+      });
+      
+      // Show approval panel if this is the first one
+      if (pendingApprovals.length === 1) {
+        showApprovalPanel(lastUserMessage, tag, confPct);
+      }
+    } else {
+      console.log(`✓ Pattern already known: "${lastUserMessage}" → ${tag}`);
+    }
+  });
+
+  // If activations are provided, use them to update the visualizer
+  if (payload.activations) {
+    const acts = {
+      bow:   payload.activations.input || payload.activations.bow || [],
+      a1:    payload.activations.relu1 || [],
+      a2:    payload.activations.relu2 || [],
+      probs: payload.activations.output_probs || payload.activations.probs || [],
+    };
+    lastActivations = acts;
+    renderBOW(acts.bow);
+    renderBars(acts.probs);
+    renderTrace(acts);
+    renderEquation(acts.bow, acts);
+    drawNet(acts);
+    renderWeightMatrix();
+  }
+
+  // Append to conversation history
+  const conv = document.getElementById('convMessages');
+  if (conv) {
+    const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const role = source === 'server' ? 'bot' : 'bot';
+    const bubble = document.createElement('div');
+    bubble.className = `msg ${role}`;
+    bubble.innerHTML = `
+      <div class="msg-avatar">${role==='bot'?'🤖':'👤'}</div>
+      <div>
+        <div class="msg-bubble">${response}</div>
+        <div class="msg-meta">${role==='bot'?'Bot':'You'} · ${now}</div>
+      </div>`;
+    conv.appendChild(bubble);
+    conv.scrollTop = conv.scrollHeight;
+  }
+}
+
+function showApprovalPanel(message, tag, confidence) {
+  const panel = document.getElementById('approvalPanel');
+  const messageEl = document.getElementById('pendingMessage');
+  const tagInput = document.getElementById('approvalTagInput');
+  
+  if (messageEl) messageEl.textContent = `"${message}"`;
+  if (tagInput) tagInput.value = tag;
+  if (panel) panel.style.display = 'block';
+}
+
+function hideApprovalPanel() {
+  const panel = document.getElementById('approvalPanel');
+  if (panel) panel.style.display = 'none';
+}
+
+async function approveClassification() {
+  if (pendingApprovals.length === 0) return;
+  
+  const current = pendingApprovals[0];
+  const editedTag = document.getElementById('approvalTagInput').value.trim() || current.tag;
+  
+  // Send approval to server (learn this pattern)
+  try {
+    await fetch(`${SERVER}/learn`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pattern: current.message, tag: editedTag})
+    });
+    console.log(`✓ Learned: "${current.message}" → ${editedTag}`);
+  } catch (e) {
+    console.warn('Learn request failed', e);
+  }
+  
+  // Remove from queue and show next
+  pendingApprovals.shift();
+  if (pendingApprovals.length > 0) {
+    const next = pendingApprovals[0];
+    showApprovalPanel(next.message, next.tag, (next.confidence * 100).toFixed(1));
+  } else {
+    hideApprovalPanel();
+  }
+}
+
+function rejectClassification() {
+  if (pendingApprovals.length === 0) return;
+  
+  const current = pendingApprovals[0];
+  const editedTag = document.getElementById('approvalTagInput').value.trim();
+  
+  if (editedTag && editedTag !== current.tag) {
+    // If user edited the tag, treat it as a correction and approve with the new tag
+    document.getElementById('approvalTagInput').value = editedTag;
+    approveClassification();
+  } else {
+    // Just reject without learning
+    console.log(`✗ Rejected: "${current.message}"`);
+    pendingApprovals.shift();
+    if (pendingApprovals.length > 0) {
+      const next = pendingApprovals[0];
+      showApprovalPanel(next.message, next.tag, (next.confidence * 100).toFixed(1));
+    } else {
+      hideApprovalPanel();
+    }
+  }
+}
+
+// Append user message to conversation
+function appendUserMessage(text) {
+  const conv = document.getElementById('convMessages');
+  if (!conv) return;
+  
+  // Store message for auto-learning on next prediction
+  lastUserMessage = text;
+  
+  const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `
+    <div class="msg-avatar">👤</div>
+    <div>
+      <div class="msg-bubble">${text}</div>
+      <div class="msg-meta">You · ${now}</div>
+    </div>`;
+  conv.appendChild(div);
+  conv.scrollTop = conv.scrollHeight;
+}
+
+function sendFromInput() {
+  const el = document.getElementById('inputText');
+  if (!el) return;
+  const sentence = el.value.trim();
+  if (!sentence) return;
+  appendUserMessage(sentence);
+  el.value = '';
+  runForwardPass(false, sentence);
+}
+
+function toggleTeachForm() {
+  const f = document.getElementById('teachForm');
+  if (!f) return;
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitTeach() {
+  const pattern = document.getElementById('teachPattern').value.trim();
+  const tag = document.getElementById('teachTag').value.trim();
+  const response = document.getElementById('teachResponse').value.trim();
+  if (!pattern || !response) { alert('Pattern and response required'); return; }
+  try {
+    const r = await fetch(`${SERVER}/teach`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pattern, tag: tag || null, response})});
+    const j = await r.json();
+    if (r.ok) {
+      alert('Saved to data.json');
+      document.getElementById("teachPattern").value = "";
+      document.getElementById("teachTag").value = ""
+      document.getElementById("teachResponse").value = ""
+      toggleTeachForm();
+      fetchStats();
+    } else {
+      alert('Teach failed: '+(j.error||'unknown'));
+    }
+  } catch(e) { alert('Teach request failed'); }
+}
+
+async function retrainModel() {
+  const btn = document.getElementById('retrainBtn');
+  btn.disabled = true;
+  btn.textContent = 'Retraining…';
+  try {
+    const r = await fetch(`${SERVER}/retrain`, {method:'POST'});
+    if (!r.ok) { alert('Retrain request failed'); btn.disabled = false; btn.textContent = '⟳ Retrain'; return; }
+    
+    // Poll for retrain completion (up to 2 minutes)
+    for (let i = 0; i < 120; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const sr = await fetch(`${SERVER}/stats`);
+      if (!sr.ok) continue;
+      const st = await sr.json();
+      btn.textContent = `Retraining… (${st.retrain_status})`;
+      
+      if (st.retrain_status === 'done') {
+        alert('✓ Retrain complete! Loading new weights…');
+        await loadRealWeights();
+        btn.disabled = false;
+        btn.textContent = '⟳ Retrain';
+        fetchStats();
+        return;
+      }
+      if (st.retrain_status === 'failed') {
+        const logSnippet = (st.retrain_log || '').slice(0, 1000);
+        alert('✗ Retrain failed.\n\nError log:\n' + logSnippet);
+        btn.disabled = false;
+        btn.textContent = '⟳ Retrain';
+        return;
+      }
+    }
+    alert('⏱ Retrain timeout. Check server console for details.');
+  } catch(e) { alert('Retrain request failed: ' + e.message); }
+  btn.disabled = false;
+  btn.textContent = '⟳ Retrain';
+}
+
+async function fetchStats() {
+  try {
+    const r = await fetch(`${SERVER}/stats`);
+    if (!r.ok) throw new Error();
+    const j = await r.json();
+    const el = document.getElementById('visStats');
+    if (el) el.innerHTML = `Vocabulary: <b style="color:var(--accent3)">${j.vocab_size}</b><br>Tags: <b style="color:var(--accent3)">${j.num_tags}</b><br>Samples: <b style="color:var(--accent3)">${j.samples}</b><br>Retrain: <b style="color:var(--accent3)">${j.retrain_status||'idle'}</b>` + (j.retrain_status==='failed' ? `<div style="margin-top:6px;font-size:11px;color:var(--muted);">Log:<pre style="white-space:pre-wrap;max-height:120px;overflow:auto;border:1px solid var(--border);padding:8px;margin-top:6px;background:var(--surface2);">${(j.retrain_log||'').slice(0,2000)}</pre></div>` : '');
+  } catch(e) {
+    const el = document.getElementById('visStats'); if (el) el.textContent = 'Stats unavailable';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MATH HELPERS
+// ══════════════════════════════════════════════════════════════
+function matVec(W, x) { return W.map(row => row.reduce((s, w, i) => s + w * (x[i]||0), 0)); }
+function addBias(a, b) { return a.map((v, i) => v + (b[i]||0)); }
+function relu(a) { return a.map(v => Math.max(0, v)); }
+function softmax(a) {
+  const max = Math.max(...a);
+  const exp = a.map(v => Math.exp(v - max));
+  const sum = exp.reduce((s, v) => s + v, 0);
+  return exp.map(v => v / sum);
+}
+
+function bagOfWords(sentence) {
+  const words = sentence.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/);
+  const stem  = w => w.replace(/(ing|tion|ness|ies|es|ed|er|ly|s)$/, '');
+  const stemmed = new Set(words.map(stem));
+  return VOCAB.map(v => (stemmed.has(v) || words.includes(v)) ? 1 : 0);
+}
+
+let lastActivations = null;
+
+function forwardPass(bow) {
+  const z1 = addBias(matVec(W1, bow), b1);
+  const a1  = relu(z1);
+  const z2  = addBias(matVec(W2, a1), b2);
+  const a2  = relu(z2);
+  const z3  = addBias(matVec(W3, a2), b3);
+  const probs = softmax(z3);
+  return { bow, z1, a1, z2, a2, z3, probs };
+}
+
+// ══════════════════════════════════════════════════════════════
+// CANVAS RENDERER
+// ══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('nnCanvas');
+const ctx    = canvas.getContext('2d');
+
+const LAYERS_DEF = [
+  { label: 'Input',    x: 80  },
+  { label: 'Hidden 1', x: 320 },
+  { label: 'Hidden 2', x: 560 },
+  { label: 'Output',   x: 800 },
+];
+const MAX_NODES_SHOWN = 16;
+
+function nodeColor(val, max) {
+  if (Math.abs(val) < 0.001) return '#3a3a55';
+  const t = Math.min(Math.abs(val) / (max || 1), 1);
+  if (val > 0) {
+    const g = Math.round(107 + 149 * t), b = Math.round(216 - 140 * t);
+    return `rgb(${Math.round(107*t)},${g},${b})`;
+  } else {
+    const r = Math.round(150 + 105 * t);
+    return `rgb(${r},${Math.round(107*(1-t))},${Math.round(107*(1-t))})`;
+  }
+}
+
+function nodeY(totalNodes, idx, H) {
+  const shown   = Math.min(totalNodes, MAX_NODES_SHOWN);
+  const padding = 36;
+  const spacing = (H - padding * 2) / (shown - 1 || 1);
+  return padding + idx * spacing;
+}
+
+function drawNet(activations) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const layers = [
+    activations ? activations.bow   : Array(VOCAB.length).fill(0),
+    activations ? activations.a1    : Array(HIDDEN).fill(0),
+    activations ? activations.a2    : Array(HIDDEN).fill(0),
+    activations ? activations.probs : Array(TAGS.length).fill(0),
+  ];
+
+  const H = canvas.height;
+  const nodeR = 7;
+
+  for (let li = 0; li < LAYERS_DEF.length - 1; li++) {
+    const fromLayer = layers[li], toLayer = layers[li+1];
+    const fromCount = Math.min(fromLayer.length, MAX_NODES_SHOWN);
+    const toCount   = Math.min(toLayer.length,   MAX_NODES_SHOWN);
+    const fromX = LAYERS_DEF[li].x, toX = LAYERS_DEF[li+1].x;
+    const Wmat  = li === 0 ? W1 : li === 1 ? W2 : W3;
+
+    for (let f = 0; f < fromCount; f++) {
+      const fy = nodeY(fromLayer.length, f, H);
+      for (let t = 0; t < toCount; t++) {
+        const ty = nodeY(toLayer.length, t, H);
+        const w  = (Wmat[t] || [])[f] || 0;
+        const alpha = Math.min(Math.abs(w) * 3, 0.25);
+        ctx.beginPath();
+        ctx.moveTo(fromX + nodeR, fy);
+        ctx.lineTo(toX - nodeR, ty);
+        ctx.strokeStyle = w > 0
+          ? `rgba(107,255,216,${alpha})`
+          : `rgba(255,107,107,${alpha})`;
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+      }
+    }
+  }
+
+  for (let li = 0; li < LAYERS_DEF.length; li++) {
+    const layer  = layers[li];
+    const shown  = Math.min(layer.length, MAX_NODES_SHOWN);
+    const lx     = LAYERS_DEF[li].x;
+    const maxVal = Math.max(...layer.map(Math.abs), 0.001);
+
+    for (let ni = 0; ni < shown; ni++) {
+      const ny  = nodeY(layer.length, ni, H);
+      const val = layer[ni] || 0;
+      ctx.beginPath();
+      ctx.arc(lx, ny, nodeR, 0, Math.PI * 2);
+      ctx.fillStyle = nodeColor(val, maxVal);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+
+    if (layer.length > MAX_NODES_SHOWN) {
+      const lastY = nodeY(layer.length, shown - 1, H);
+      ctx.fillStyle = '#6b6b8a';
+      ctx.font = '11px JetBrains Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText('⋮', lx, lastY + 22);
+      ctx.fillText(`+${layer.length - shown}`, lx, lastY + 36);
+    }
+
+    if (li === 3 && activations) {
+      for (let ni = 0; ni < shown; ni++) {
+        const ny  = nodeY(layer.length, ni, H);
+        const pct = (layer[ni] * 100).toFixed(1);
+        ctx.fillStyle = layer[ni] > 0.4 ? '#6bffd8' : '#6b6b8a';
+        ctx.font = '10px JetBrains Mono';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${TAGS[ni] || ''} ${pct}%`, lx + 14, ny + 4);
+      }
+    }
+  }
+}
+
+// ── Visualizer UI updaters ────────────────────────────────────
+
+function renderBOW(bow) {
+  const detected = VOCAB.filter((w, i) => bow[i] > 0);
+  document.getElementById('bowTokens').innerHTML = detected.length > 0
+    ? detected.map(w => `<span class="token token-active">${w}</span>`).join('')
+    : '<span style="color:var(--muted);font-size:11px;">No tokens detected</span>';
+}
+
+function renderBars(probs) {
+  const withIdx = probs.map((p, i) => ({prob: p, tag: TAGS[i], idx: i}));
+  const top10 = withIdx.sort((a, b) => b.prob - a.prob).slice(0, 10);
+  const maxTop = top10[0];
+  document.getElementById('tagBars').innerHTML = top10.map(item => `
+    <div class="tag-row">
+      <div class="tag-label-row">
+        <span class="tag-name">${item.tag}</span>
+        <span class="tag-pct">${(item.prob*100).toFixed(1)}%</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill ${item === maxTop ? 'top' : ''}" style="width:${item.prob*100}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTrace(acts) {
+  const activeInput = acts.bow.filter(v => v > 0).length;
+  const h1Active = acts.a1.filter(v => v > 0).length;
+  const h2Active = acts.a2.filter(v => v > 0).length;
+  const maxProb  = Math.max(...acts.probs);
+  const predTag  = TAGS[acts.probs.indexOf(maxProb)];
+  document.getElementById('stepTrace').innerHTML = `
+    <div class="step active"><span class="step-num">1</span><span class="step-desc">Tokenize + BOW encode</span><span class="step-val">${activeInput}/${VOCAB.length} active</span></div>
+    <div class="step active"><span class="step-num">2</span><span class="step-desc">z₁ = W₁·x + b₁</span><span class="step-val">64 values</span></div>
+    <div class="step active"><span class="step-num">3</span><span class="step-desc">a₁ = ReLU(z₁)</span><span class="step-val">${h1Active} active</span></div>
+    <div class="step active"><span class="step-num">4</span><span class="step-desc">z₂ = W₂·a₁ + b₂</span><span class="step-val">64 values</span></div>
+    <div class="step active"><span class="step-num">5</span><span class="step-desc">a₂ = ReLU(z₂)</span><span class="step-val">${h2Active} active</span></div>
+    <div class="step active"><span class="step-num">6</span><span class="step-desc">z₃ = W₃·a₂ + b₃</span><span class="step-val">${TAGS.length} logits</span></div>
+    <div class="step active"><span class="step-num">7</span><span class="step-desc">probs = softmax(z₃)</span><span class="step-val">→ <b style="color:var(--accent3)">${predTag}</b> ${(maxProb*100).toFixed(1)}%</span></div>
+  `;
+}
+
+function renderEquation(bow, acts) {
+  const activeWords = VOCAB.filter((_, i) => bow[i]);
+  const maxProb = Math.max(...acts.probs);
+  const predTag = TAGS[acts.probs.indexOf(maxProb)];
+  document.getElementById('equation').innerHTML = `
+    <span style="color:var(--text);">y = softmax( W₃ · ReLU( W₂ · ReLU( W₁ · <span class="highlight">x</span> + b₁ ) + b₂ ) + b₃ )</span><br><br>
+    <span class="highlight">x</span> = [${bow.map(v=>`<span style="color:${v?'var(--accent3)':'var(--muted)'}">${v}</span>`).join(' ')}]<br>
+    <span style="color:var(--muted);">active words: </span><span style="color:var(--accent3);font-weight:600;">${activeWords.length ? activeWords.join(', ') : '(none matched vocab)'}</span><br>
+    <span style="color:var(--muted);">prediction: </span><span style="color:var(--accent3);font-weight:600;">${predTag}</span>
+    <span style="color:var(--accent2);"> @ </span><span style="color:var(--accent3);font-weight:600;">${(maxProb*100).toFixed(1)}%</span>
+    ${usingRealWeights ? '<br><span style="color:var(--accent2);font-size:10px;">★ using real trained weights</span>' : ''}
+  `;
+}
+
+function renderWeightMatrix() {
+  const el = document.getElementById('weightMatrix');
+  el.innerHTML = '';
+  const slice  = W1.slice(0, 20).map(row => row.slice(0, 20));
+  const maxW   = Math.max(...slice.flat().map(Math.abs), 0.001);
+  slice.forEach(row => {
+    row.forEach(w => {
+      const cell = document.createElement('div');
+      cell.className = 'matrix-cell';
+      const t = Math.min(Math.abs(w) / maxW, 1);
+      cell.style.background = w > 0
+        ? `rgba(107,255,216,${t * 0.85 + 0.05})`
+        : `rgba(255,107,107,${t * 0.85 + 0.05})`;
+      cell.title = w.toFixed(4);
+      el.appendChild(cell);
+    });
+  });
+}
+
+async function runForwardPass(appendUser=false, sentenceArg=null) {
+  const sentence = (sentenceArg !== null && sentenceArg !== undefined)
+    ? String(sentenceArg).trim()
+    : (document.getElementById('inputText') ? document.getElementById('inputText').value.trim() : '');
+  if (!sentence) return;
+
+  // Store current message for approval workflow
+  lastUserMessage = sentence;
+
+  // Prefer server predictions if available
+  if (serverOnline) {
+    try {
+      const r = await fetch(`${SERVER}/predict`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sentence})
+      });
+      const data = await r.json();
+
+      // Display bot response and show approval panel
+      displayBotResponse(data, 'server');
+
+      // Use activations from server when present
+      if (data.activations) {
+        const acts = {
+          bow: data.activations.input || [],
+          a1:  data.activations.relu1 || [],
+          a2:  data.activations.relu2 || [],
+          probs: data.activations.output_probs || [],
+        };
+        lastActivations = acts;
+        renderBOW(acts.bow);
+        renderBars(acts.probs);
+        renderTrace(acts);
+        renderEquation(acts.bow, acts);
+        drawNet(acts);
+        renderWeightMatrix();
+      } else {
+        // Fallback: local forward pass for visuals
+        const bow  = bagOfWords(sentence);
+        const acts = forwardPass(bow);
+        lastActivations = acts;
+        renderBOW(acts.bow);
+        renderBars(acts.probs);
+        renderTrace(acts);
+        renderEquation(acts.bow, acts);
+        drawNet(acts);
+        renderWeightMatrix();
+      }
+    } catch (e) {
+      console.warn('Server predict failed', e);
+      serverOnline = false;
+      // Use local computation only if real weights are loaded
+      if (usingRealWeights) {
+        const bow  = bagOfWords(sentence);
+        const acts = forwardPass(bow);
+        lastActivations = acts;
+        renderBOW(bow);
+        renderBars(acts.probs);
+        renderTrace(acts);
+        renderEquation(bow, acts);
+        drawNet(acts);
+        renderWeightMatrix();
+        const maxIdx = acts.probs.indexOf(Math.max(...acts.probs));
+        displayBotResponse({tag: TAGS[maxIdx], confidence: acts.probs[maxIdx], activations: {input: acts.bow, relu1: acts.a1, relu2: acts.a2, output_probs: acts.probs}}, 'local');
+      } else {
+        alert('Server connection required. Please ensure python server.py is running.');
+      }
+    }
+  } else {
+    // Offline: only use local computation if real weights are loaded
+    if (usingRealWeights) {
+      const bow  = bagOfWords(sentence);
+      const acts = forwardPass(bow);
+      lastActivations = acts;
+      renderBOW(bow);
+      renderBars(acts.probs);
+      renderTrace(acts);
+      renderEquation(bow, acts);
+      drawNet(acts);
+      renderWeightMatrix();
+      const maxIdx = acts.probs.indexOf(Math.max(...acts.probs));
+      displayBotResponse({tag: TAGS[maxIdx], confidence: acts.probs[maxIdx], activations: {input: acts.bow, relu1: acts.a1, relu2: acts.a2, output_probs: acts.probs}}, 'local');
+    } else {
+      alert('Server connection required. Please ensure python server.py is running.');
+    }
+  }
+
+  document.getElementById('lbl-input').textContent = `${VOCAB.length} dims`;
+  document.getElementById('lbl-out').textContent   = `${TAGS.length} classes`;
+}
+
+const EXAMPLES = [
+  'hello there','goodbye friend','how are you doing',
+  'what is your name','thanks a lot','hi','bye',
+  'who are you','thank you','see you later'
+];
+function randomSentence() {
+  const sent = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
+  document.getElementById('inputText').value = sent;
+  sendFromInput();
+}
+
+// ── Init ──────────────────────────────────────────────────────
+renderWeightMatrix();
+drawNet(null);
+checkServer(); // Load real weights on startup
+setInterval(checkServer, 15000); // recheck every 15s
+fetchStats();
+setInterval(fetchStats, 10000);
+fetchLogs();
+setInterval(fetchLogs, 3000); // fetch logs every 3s
+</script>
+</body>
+</html>

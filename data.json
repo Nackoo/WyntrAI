@@ -1,0 +1,149 @@
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": [
+        "hello",
+        "hi",
+        "hey",
+        "good morning",
+        "good evening",
+        "howdy",
+        "gimmi topic",
+        "siempreququq"
+      ],
+      "responses": [
+        "Hello! How can I help you?",
+        "Hey there!",
+        "Hi! What can I do for you?"
+      ]
+    },
+    {
+      "tag": "farewell",
+      "patterns": [
+        "bye",
+        "goodbye",
+        "see you",
+        "take care",
+        "later",
+        "see you later",
+        "take my heart but please don't break it"
+      ],
+      "responses": [
+        "Goodbye!",
+        "See you later!",
+        "Take care!"
+      ]
+    },
+    {
+      "tag": "thanks",
+      "patterns": [
+        "thanks",
+        "thank you",
+        "thx",
+        "much appreciated",
+        "cute",
+        "goodbye friend"
+      ],
+      "responses": [
+        "You're welcome!",
+        "Happy to help!",
+        "No problem!"
+      ]
+    },
+    {
+      "tag": "name",
+      "patterns": [
+        "what is your name",
+        "who are you",
+        "what should i call you"
+      ],
+      "responses": [
+        "I'm your personal chatbot!",
+        "You can call me Bot.",
+        "I'm a chatbot you trained yourself!"
+      ]
+    },
+    {
+      "tag": "how_are_you",
+      "patterns": [
+        "how are you",
+        "how do you feel",
+        "are you okay"
+      ],
+      "responses": [
+        "I'm just a bot, but I'm doing great!",
+        "Running perfectly, thanks for asking!",
+        "goodgood, thanks for asking cutie"
+      ]
+    },
+    {
+      "tag": "thanks",
+      "patterns": [
+        "wow, you're very smart"
+      ],
+      "responses": [
+        "appreciate it! meow."
+      ]
+    },
+    {
+      "tag": "confused",
+      "patterns": [
+        "...",
+        "hmm",
+        "wut",
+        "nothing",
+        "thank you"
+      ],
+      "responses": [
+        "... maybe we could move onto another topic?",
+        "WUT",
+        "uhh"
+      ]
+    },
+    {
+      "tag": "random",
+      "patterns": [
+        "give me some random questions"
+      ],
+      "responses": [
+        "hab you eaten?"
+      ]
+    },
+    {
+      "tag": "compliment",
+      "patterns": [
+        "yes",
+        "*blushes*",
+        "okay",
+        "i love you",
+        "baby"
+      ],
+      "responses": [
+        "that's cutee",
+        "aww.. i love you too",
+        "baby..? \ud83d\ude33\ud83d\ude33"
+      ]
+    },
+    {
+      "tag": "sorry",
+      "patterns": [
+        "fuck you",
+        "i hate u"
+      ],
+      "responses": [
+        "aww sorryy",
+        "aww sorryy"
+      ]
+    },
+    {
+      "tag": "what",
+      "patterns": [
+        "do you know?"
+      ],
+      "responses": [
+        "wutt"
+      ]
+    }
+  ]
+}
