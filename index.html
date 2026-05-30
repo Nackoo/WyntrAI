@@ -563,7 +563,7 @@
         <div class="panel">
           <p class="panel-title">Stats</p>
           <div id="visStats" style="font-size:12px;color:var(--muted);">Loading…</div>
-          <button class="secondary" onclick="if (!confirm('download model?')) return; if (!confirm('are you sure?')) return; window.open('/download-model')" style="margin-top:20px">Download model</button>
+          <button class="secondary" onclick="if (!confirm('download model?')) return; if (!confirm('are you sure?')) return; downloadAll()" style="margin-top:20px">Download model</button>
         </div>
       </div>
 
@@ -606,10 +606,12 @@
 </div><!-- /shell -->
 
 <script>
-// ══════════════════════════════════════════════════════════════
-// MODEL STATE — starts with hardcoded demo weights.
-// Call loadRealWeights() or send a chat message to pull from server.
-// ══════════════════════════════════════════════════════════════
+function downloadAll() {
+    window.open('/download-model');
+    setTimeout(() => {
+        window.open('/download-data');
+    }, 500);
+}
 
 let VOCAB = [
   "are","bye","call","do","feel","goodbye","good","hello","hey","hi",
