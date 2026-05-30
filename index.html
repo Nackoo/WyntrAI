@@ -563,6 +563,7 @@
         <div class="panel">
           <p class="panel-title">Stats</p>
           <div id="visStats" style="font-size:12px;color:var(--muted);">Loading…</div>
+          <button class="secondary" onclick="if (!confirm('download model?')) return; if (!confirm('are you sure?')) return; window.open('/download-model')" style="margin-top:20px">Download model</button>
         </div>
       </div>
 

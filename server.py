@@ -168,6 +168,11 @@ def retrain():
     t = threading.Thread(target=_retrain_and_reload, daemon=True)
     t.start()
     return jsonify({'status': 'started'})
+    
+@app.route('/download-model')
+def download_model():
+    return send_file('model.pth', as_attachment=True)
+    return send_file('data.json', as_attachment=True)
 
 @app.route('/check-pattern', methods=['POST'])
 def check_pattern():
