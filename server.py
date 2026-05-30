@@ -8,6 +8,7 @@ import threading
 import subprocess
 import time
 import sys
+import zipfile
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
@@ -169,13 +170,17 @@ def retrain():
     t.start()
     return jsonify({'status': 'started'})
     
-@app.route('/download-model')
-def download_model():
-    return send_file('model.pth', as_attachment=True)
+@app.route('/download-backup')
+def download_backup():
+    with zipfile.ZipFile('backup.zip', 'w') as z:
+        z.write('model.pth')
+        z.write('data.json')
 
-@app.route('/download-data')
-def download_data():
-    return send_file('data.json', as_attachment=True)
+    return send_file(
+        'backup.zip',
+        as_attachment=True,
+        download_name='wyntr_backup.zip'
+    )
 
 @app.route('/check-pattern', methods=['POST'])
 def check_pattern():
