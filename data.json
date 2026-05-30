@@ -69,7 +69,8 @@
       "patterns": [
         "how are you",
         "how do you feel",
-        "are you okay"
+        "are you okay",
+        "how are you doing"
       ],
       "responses": [
         "I'm just a bot, but I'm doing great!",
@@ -93,7 +94,8 @@
         "hmm",
         "wut",
         "nothing",
-        "thank you"
+        "thank you",
+        "what the flip"
       ],
       "responses": [
         "... maybe we could move onto another topic?",
@@ -143,6 +145,51 @@
       ],
       "responses": [
         "wutt"
+      ]
+    },
+    {
+      "tag": "sad",
+      "patterns": [
+        "i'm sad today",
+        "sad"
+      ],
+      "responses": [
+        "aww don't be sad, do you want emuach?"
+      ]
+    },
+    {
+      "tag": "happy",
+      "patterns": [
+        "i'm happy today",
+        "happy"
+      ],
+      "responses": [
+        "yay i'm happy too"
+      ]
+    },
+    {
+      "tag": "desire",
+      "patterns": [
+        "i want"
+      ],
+      "responses": []
+    },
+    {
+      "tag": "cat",
+      "patterns": [
+        "meow"
+      ],
+      "responses": [
+        "m-meow?"
+      ]
+    },
+    {
+      "tag": "brainrot",
+      "patterns": [
+        "skibidi"
+      ],
+      "responses": [
+        "you brainrotted piece of sh-"
       ]
     }
   ]
