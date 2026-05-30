@@ -146,6 +146,7 @@
     cursor: pointer;
     letter-spacing: 0.05em;
     transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
   }
   button:hover { opacity: 0.88; transform: translateY(-1px); }
   button:active { transform: scale(0.98); }
@@ -436,6 +437,38 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Mobile & Tablet Responsiveness ── */
+  @media (max-width: 1100px) {
+    .vis-layout {
+      grid-template-columns: 1fr;
+    }
+    .nn-panel {
+      order: 2; /* Ensures conversation stays at the top on tablets/mobile */
+    }
+  }
+
+  @media (max-width: 768px) {
+    header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .shell {
+      padding: 20px 16px;
+    }
+    .panel {
+      padding: 15px;
+    }
+    textarea.vis-input {
+      font-size: 16px; /* Prevents iOS auto-zoom on focus */
+    }
+    #convWrap button {
+      padding: 10px 8px;
+      font-size: 11px;
+      flex: 1;
+    }
+  }
 </style>
 </head>
 <body>
@@ -469,7 +502,7 @@
             </div>
             <textarea class="vis-input" id="inputText" placeholder="Type a message… (Enter to send)" rows="2"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendFromInput();}"></textarea>
-            <div style="display:flex;gap:8px;align-items:center;">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <button class="secondary" onclick="randomSentence()">⟳ Random</button>
               <button class="secondary" id="teachBtn" onclick="toggleTeachForm()">✎ Teach</button>
               <button class="secondary" id="retrainBtn" onclick="retrainModel()">⟳ Retrain</button>
@@ -545,12 +578,12 @@
         </div>
         <div class="canvas-wrap">
           <canvas id="nnCanvas" width="900" height="420"></canvas>
-        </div>
-        <div class="layer-labels" id="layerLabels">
-          <div class="layer-label"><b>Input</b>BOW vector<br><span id="lbl-input">—</span></div>
-          <div class="layer-label"><b>Hidden 1</b>Linear + ReLU<br><span id="lbl-h1">64 units</span></div>
-          <div class="layer-label"><b>Hidden 2</b>Linear + ReLU<br><span id="lbl-h2">64 units</span></div>
-          <div class="layer-label"><b>Output</b>Softmax<br><span id="lbl-out">—</span></div>
+          <div class="layer-labels" id="layerLabels" style="min-width: 900px; padding-bottom: 10px;">
+            <div class="layer-label"><b>Input</b>BOW vector<br><span id="lbl-input">—</span></div>
+            <div class="layer-label"><b>Hidden 1</b>Linear + ReLU<br><span id="lbl-h1">64 units</span></div>
+            <div class="layer-label"><b>Hidden 2</b>Linear + ReLU<br><span id="lbl-h2">64 units</span></div>
+            <div class="layer-label"><b>Output</b>Softmax<br><span id="lbl-out">—</span></div>
+          </div>
         </div>
         <div class="matrix-section">
           <p class="matrix-title">W₁ weight matrix (input → hidden 1) — first 20×20 slice</p>
