@@ -87,16 +87,26 @@ def learn():
         with open('data.json') as f:
             data = json.load(f)
         # find or create tag
-        found = False
+        tag_found = False
+
         for intent in data['intents']:
             if intent['tag'] == tag:
+                tag_found = True
+
                 if pattern not in intent.get('patterns', []):
                     intent.setdefault('patterns', []).append(pattern)
-                    found = True
                     log_activity(f"Auto-learned: '{pattern[:30]}...' for tag '{tag}'")
+
                 break
-        if not found and len(data['intents']) > 0:
-            log_activity(f"Tag '{tag}' not found for auto-learn")
+
+        if not tag_found:
+            data['intents'].append({
+                'tag': tag,
+                'patterns': [pattern],
+                'responses': []
+            })
+
+            log_activity(f"Created new tag '{tag}' with pattern '{pattern[:30]}...'")
         with open('data.json', 'w') as f:
             json.dump(data, f, indent=2)
         return jsonify({'status': 'ok'})
