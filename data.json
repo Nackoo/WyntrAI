@@ -186,10 +186,29 @@
     {
       "tag": "brainrot",
       "patterns": [
-        "skibidi"
+        "skibidi",
+        "skibidi?"
       ],
       "responses": [
         "you brainrotted piece of sh-"
+      ]
+    },
+    {
+      "tag": "Denial",
+      "patterns": [
+        "NO"
+      ],
+      "responses": [
+        "WHY"
+      ]
+    },
+    {
+      "tag": "cause",
+      "patterns": [
+        "cus"
+      ],
+      "responses": [
+        "cuz"
       ]
     }
   ]

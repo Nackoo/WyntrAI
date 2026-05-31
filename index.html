@@ -258,7 +258,7 @@
           <div class="action-row">
             <button class="secondary" onclick="randomSentence()">⟳ Random</button>
             <button class="secondary" id="teachBtn" onclick="toggleTeachForm()">✎ Teach</button>
-            <button class="secondary" id="retrainBtn" onclick="retrainModel()">⟳ Retrain</button>
+            <button class="secondary" id="retrainBtn" onclick="if(!confirm('retrain model?'))return;if(!confirm('Are you sure?'))return;retrainModel()">⟳ Retrain</button>
           </div>
         </div>
 
