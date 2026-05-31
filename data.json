@@ -210,6 +210,15 @@
       "responses": [
         "cuz"
       ]
+    },
+    {
+      "tag": "my_name",
+      "patterns": [
+        "what is my name"
+      ],
+      "responses": [
+        "idfk"
+      ]
     }
   ]
 }

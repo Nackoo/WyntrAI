@@ -537,7 +537,7 @@ function displayBotResponse(payload, source='server') {
 
   // Approval queue
   checkPatternExists(lastUserMessage, tag).then(exists => {
-    if (!exists) {
+    if (!exists && tag != "internet_search") {
       pendingApprovals.push({message: lastUserMessage, tag, response, confidence, payload, source});
       if (pendingApprovals.length === 1) showApprovalPanel(lastUserMessage, tag, confPct);
     } else {
