@@ -281,6 +281,7 @@
     async function fetchStats() {
       const statusEl = document.getElementById('serverStatus');
       const statusText = statusEl.querySelector('.status-text');
+      const retrainBtn = document.getElementById('retrainBtn');
       try {
         const response = await fetch(`${SERVER}/stats`);
         if (!response.ok) throw new Error();
@@ -288,6 +289,14 @@
         
         document.getElementById('statVocab').textContent = data.vocab_size || '—';
         document.getElementById('statSamples').textContent = data.samples || '—';
+
+        if (data.retrain_status === 'running') {
+          retrainBtn.disabled = true;
+          retrainBtn.textContent = 'Retraining in progress...';
+        } else if (retrainBtn.textContent !== 'Executing Backpropagation...') {
+          retrainBtn.disabled = false;
+          retrainBtn.textContent = 'Retrain Model weights';
+        }
 
         statusEl.classList.add('online');
         statusText.textContent = "Connected to server";
@@ -299,13 +308,16 @@
 
     async function retrainModel() {
       const btn = document.getElementById('retrainBtn');
+      if (btn.disabled) return;
+
       btn.disabled = true;
       btn.textContent = 'Executing Backpropagation...';
       try {
         const response = await fetch(`${SERVER}/retrain`, { method: 'POST' });
         if (response.ok) {
           alert('Weights retraining cycle initiated successfully.');
-          setTimeout(fetchStats, 1500);
+          fetchStats();
+          return;
         }
       } catch {
         alert('Server processing exception during training optimization initialization.');
