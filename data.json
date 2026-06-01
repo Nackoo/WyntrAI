@@ -1,223 +1,297 @@
 {
-  "intents": [
+  "conversations": [
     {
-      "tag": "greeting",
-      "patterns": [
-        "hello",
-        "hi",
-        "hey",
-        "good morning",
-        "good evening",
-        "howdy",
-        "gimmi topic",
-        "siempreququq"
-      ],
-      "responses": [
-        "Hello! How can I help you?",
-        "Hey there!",
+      "input": "hello",
+      "replies": [
+        "Hello! How can I help you?"
+      ]
+    },
+    {
+      "input": "hi",
+      "replies": [
+        "Hey there!"
+      ]
+    },
+    {
+      "input": "hey",
+      "replies": [
         "Hi! What can I do for you?"
       ]
     },
     {
-      "tag": "farewell",
-      "patterns": [
-        "bye",
-        "goodbye",
-        "see you",
-        "take care",
-        "later",
-        "see you later",
-        "take my heart but please don't break it"
-      ],
-      "responses": [
-        "Goodbye!",
-        "See you later!",
+      "input": "good morning",
+      "replies": [
+        "Hello! How can I help you?"
+      ]
+    },
+    {
+      "input": "good evening",
+      "replies": [
+        "Hey there!"
+      ]
+    },
+    {
+      "input": "howdy",
+      "replies": [
+        "Hi! What can I do for you?"
+      ]
+    },
+    {
+      "input": "bye",
+      "replies": [
+        "Goodbye!"
+      ]
+    },
+    {
+      "input": "goodbye",
+      "replies": [
+        "See you later!"
+      ]
+    },
+    {
+      "input": "see you",
+      "replies": [
         "Take care!"
       ]
     },
     {
-      "tag": "thanks",
-      "patterns": [
-        "thanks",
-        "thank you",
-        "thx",
-        "much appreciated",
-        "cute",
-        "goodbye friend"
-      ],
-      "responses": [
-        "You're welcome!",
-        "Happy to help!",
+      "input": "take care",
+      "replies": [
+        "Take care!"
+      ]
+    },
+    {
+      "input": "later",
+      "replies": [
+        "See you later!"
+      ]
+    },
+    {
+      "input": "see you later",
+      "replies": [
+        "See you later!"
+      ]
+    },
+    {
+      "input": "gn",
+      "replies": [
+        "gn!"
+      ]
+    },
+    {
+      "input": "good night",
+      "replies": [
+        "goodnight!"
+      ]
+    },
+    {
+      "input": "thanks",
+      "replies": [
+        "You're welcome!"
+      ]
+    },
+    {
+      "input": "thank you",
+      "replies": [
+        "Happy to help!"
+      ]
+    },
+    {
+      "input": "thx",
+      "replies": [
         "No problem!"
       ]
     },
     {
-      "tag": "name",
-      "patterns": [
-        "what is your name",
-        "who are you",
-        "what should i call you"
-      ],
-      "responses": [
-        "I'm your personal chatbot!",
-        "You can call me Bot.",
+      "input": "ty",
+      "replies": [
+        "No problem!"
+      ]
+    },
+    {
+      "input": "what is your name",
+      "replies": [
+        "You can call me Bot."
+      ]
+    },
+    {
+      "input": "who are you",
+      "replies": [
+        "I'm your personal chatbot!"
+      ]
+    },
+    {
+      "input": "what should i call you",
+      "replies": [
         "I'm a chatbot you trained yourself!"
       ]
     },
     {
-      "tag": "how_are_you",
-      "patterns": [
-        "how are you",
-        "how do you feel",
-        "are you okay",
-        "how are you doing"
-      ],
-      "responses": [
-        "I'm just a bot, but I'm doing great!",
-        "Running perfectly, thanks for asking!",
-        "goodgood, thanks for asking cutie"
+      "input": "how are you",
+      "replies": [
+        "Running perfectly, thanks for asking!"
       ]
     },
     {
-      "tag": "thanks",
-      "patterns": [
-        "wow, you're very smart"
-      ],
-      "responses": [
-        "appreciate it! meow."
+      "input": "...",
+      "replies": [
+        "WUT"
       ]
     },
     {
-      "tag": "confused",
-      "patterns": [
-        "...",
-        "hmm",
-        "wut",
-        "nothing",
-        "thank you",
-        "what the flip"
-      ],
-      "responses": [
-        "... maybe we could move onto another topic?",
-        "WUT",
+      "input": "hmm",
+      "replies": [
         "uhh"
       ]
     },
     {
-      "tag": "random",
-      "patterns": [
-        "give me some random questions"
-      ],
-      "responses": [
-        "hab you eaten?"
+      "input": "wut",
+      "replies": [
+        "WUT"
       ]
     },
     {
-      "tag": "compliment",
-      "patterns": [
-        "yes",
-        "*blushes*",
-        "okay",
-        "i love you",
-        "baby"
-      ],
-      "responses": [
-        "that's cutee",
-        "aww.. i love you too",
-        "baby..? \ud83d\ude33\ud83d\ude33"
+      "input": "nothing",
+      "replies": [
+        "uhh"
       ]
     },
     {
-      "tag": "sorry",
-      "patterns": [
-        "fuck you",
-        "i hate u"
-      ],
-      "responses": [
-        "aww sorryy",
+      "input": "what the flip",
+      "replies": [
+        "WUT"
+      ]
+    },
+    {
+      "input": "i love you",
+      "replies": [
+        "that's cutee"
+      ]
+    },
+    {
+      "input": "baby",
+      "replies": [
+        "aww.."
+      ]
+    },
+    {
+      "input": "you are amazing",
+      "replies": [
+        "aww.."
+      ]
+    },
+    {
+      "input": "fuck you",
+      "replies": [
         "aww sorryy"
       ]
     },
     {
-      "tag": "what",
-      "patterns": [
-        "do you know?"
-      ],
-      "responses": [
-        "wutt"
+      "input": "i hate u",
+      "replies": [
+        "aww sorryy"
       ]
     },
     {
-      "tag": "sad",
-      "patterns": [
-        "i'm sad today",
-        "sad"
-      ],
-      "responses": [
+      "input": "i'm sad today",
+      "replies": [
         "aww don't be sad, do you want emuach?"
       ]
     },
     {
-      "tag": "happy",
-      "patterns": [
-        "i'm happy today",
-        "happy"
-      ],
-      "responses": [
+      "input": "sad",
+      "replies": [
+        "aww don't be sad, do you want emuach?"
+      ]
+    },
+    {
+      "input": "i'm very sad today",
+      "replies": [
+        "aww don't be sad, do you want emuach?"
+      ]
+    },
+    {
+      "input": "i'm happy today",
+      "replies": [
         "yay i'm happy too"
       ]
     },
     {
-      "tag": "desire",
-      "patterns": [
-        "i want"
-      ],
-      "responses": []
+      "input": "happy",
+      "replies": [
+        "yay i'm happy too"
+      ]
     },
     {
-      "tag": "cat",
-      "patterns": [
-        "meow"
-      ],
-      "responses": [
+      "input": "meow",
+      "replies": [
         "m-meow?"
       ]
     },
     {
-      "tag": "brainrot",
-      "patterns": [
-        "skibidi",
-        "skibidi?"
-      ],
-      "responses": [
+      "input": "mingmingming maomaomao",
+      "replies": [
+        "m-meow?"
+      ]
+    },
+    {
+      "input": "skibidi",
+      "replies": [
         "you brainrotted piece of sh-"
       ]
     },
     {
-      "tag": "Denial",
-      "patterns": [
-        "NO"
-      ],
-      "responses": [
+      "input": "lirili larila",
+      "replies": [
+        "you brainrotted piece of sh-"
+      ]
+    },
+    {
+      "input": "NO",
+      "replies": [
         "WHY"
       ]
     },
     {
-      "tag": "cause",
-      "patterns": [
-        "cus"
-      ],
-      "responses": [
-        "cuz"
+      "input": "what is my name",
+      "replies": [
+        "idfk"
       ]
     },
     {
-      "tag": "my_name",
-      "patterns": [
-        "what is my name"
-      ],
-      "responses": [
-        "idfk"
+      "input": "i cannot fall asleep",
+      "replies": [
+        "try counting to 700, you'll eventually fall asleep"
+      ]
+    },
+    {
+      "input": "i can't sleep until 3am",
+      "replies": [
+        "try counting to 700, you'll eventually fall asleep"
+      ]
+    },
+    {
+      "input": "my body is tired but my brain is still active",
+      "replies": [
+        "yeah counting makes your brain tired, give it a shot"
+      ]
+    },
+    {
+      "input": "is whatsapp a good app",
+      "replies": [
+        "yeah it's decent"
+      ]
+    },
+    {
+      "input": "is voxiom fun",
+      "replies": [
+        "it was... until the hackers showed up"
+      ]
+    },
+    {
+      "input": "is python good",
+      "replies": [
+        "yes, especially for AI stuff"
       ]
     }
   ]

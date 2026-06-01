@@ -1,19 +1,14 @@
-# server.py — run alongside index.html
+# server.py — seq2seq chatbot backend
 from flask import Flask, jsonify, request, send_file, redirect
 from flask_cors import CORS
-import torch, json, random, os
-from model import ChatNet
-from utils import bag_of_words
-import threading
-import subprocess
-import time
-import sys
-import zipfile
-import requests
-from bs4 import BeautifulSoup
-import re
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import torch, json, random, os, threading, subprocess, time, sys, zipfile, re
+import requests as http_requests
+
+from model import Encoder, Decoder, Seq2Seq
+from utils import (
+    sentence_to_indices, indices_to_sentence,
+    build_vocab, PAD_IDX, SOS_IDX, EOS_IDX,
+)
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
@@ -25,493 +20,451 @@ def add_cors_headers(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
     return response
 
+
+# ── Discord Webhook ───────────────────────────────────────────────────────────
+# Set this environment variable to your Discord webhook URL
+DISCORD_WEBHOOK_URL = os.environ.get(
+    "DISCORD_WEBHOOK_URL",
+    "https://discord.com/api/webhooks/1511103886675542167/4eMVxXWQ6j3jIYzyczADxkPPsU-9kqhgRY_DYaROQQA8HssKFI_gml9jYo-voh9QRrho",
+)
+
+def send_discord_backup(label: str, data_json_path: str = "data.json"):
+    """Send the current data.json to Discord as a file attachment."""
+    if not DISCORD_WEBHOOK_URL:
+        log_activity("Discord webhook not configured — skipping backup.")
+        return
+    try:
+        with open(data_json_path, "rb") as f:
+            file_bytes = f.read()
+        http_requests.post(
+            DISCORD_WEBHOOK_URL,
+            data={"content": f"📦 **data.json backup** — {label}"},
+            files={"file": ("data.json", file_bytes, "application/json")},
+            timeout=15,
+        )
+        log_activity(f"Discord backup sent: {label}")
+    except Exception as e:
+        log_activity(f"Discord backup failed: {e}")
+
+
+# ── Model loading ─────────────────────────────────────────────────────────────
+
 def load():
-    ck = torch.load("model.pth", weights_only=True)
-    net = ChatNet(ck["input_size"], ck["hidden_size"], ck["output_size"])
-    net.load_state_dict(ck["model_state"])
-    net.eval()
-    return net, ck
+    ck = torch.load("model.pth", weights_only=False)
 
-net, ck = load()
-retrain_status = 'idle'  # 'idle' | 'running' | 'done' | 'failed'
-last_retrain_log = ''
-activity_logs = []  # stores recent activity logs
+    encoder = Encoder(
+        vocab_size   = ck["vocab_size"],
+        embed_dim    = ck["embed_dim"],
+        hidden_size  = ck["hidden_size"],
+        num_layers   = ck["num_layers"],
+        dropout      = ck["dropout"],
+    )
+    decoder = Decoder(
+        vocab_size   = ck["vocab_size"],
+        embed_dim    = ck["embed_dim"],
+        hidden_size  = ck["hidden_size"],
+        num_layers   = ck["num_layers"],
+        dropout      = ck["dropout"],
+    )
+    model = Seq2Seq(
+        encoder, decoder,
+        sos_idx = ck["sos_idx"],
+        eos_idx = ck["eos_idx"],
+        pad_idx = ck["pad_idx"],
+    )
+    encoder.load_state_dict(ck["encoder_state"])
+    decoder.load_state_dict(ck["decoder_state"])
+    model.eval()
+    return model, ck
 
-def log_activity(message):
-    """Add an activity log entry."""
+
+model, ck = load()
+retrain_status   = "idle"
+last_retrain_log = ""
+activity_logs    = []
+
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+
+def log_activity(message, ip=None):
     global activity_logs
     from datetime import datetime
-    timestamp = datetime.now().strftime('%H:%M:%S')
-    entry = {'time': timestamp, 'msg': message}
+    ts    = datetime.now().strftime("%H:%M:%S")
+    msg   = f"[{ip}] {message}" if ip else message
+    entry = {"time": ts, "msg": msg}
     activity_logs.append(entry)
-    if len(activity_logs) > 100:  # keep last 100 logs
+    if len(activity_logs) > 100:
         activity_logs.pop(0)
-    print(f"[LOG] {message}")
+    print(f"[LOG] {msg}")
 
-def get_unknown_words(sentence, vocabulary):
-    words = re.findall(r"\b[a-zA-Z0-9]+\b", sentence.lower())
 
-    stopwords = {
-        "what","who","when","where","why","how",
-        "is","are","was","were",
-        "the","a","an",
-        "of","to","in","on","for",
-        "do","does","did",
-        "can","could","would","should",
-        "my","your","their","our",
-        "his","her","i","you",
-        "we","they","he","she","it"
-    }
+def get_client_ip():
+    """Return the real client IP, respecting X-Forwarded-For if behind a proxy."""
+    if request.headers.get("X-Forwarded-For"):
+        return request.headers["X-Forwarded-For"].split(",")[0].strip()
+    return request.remote_addr
 
-    unknown = []
 
-    for word in words:
+# ── Auth ──────────────────────────────────────────────────────────────────────
 
-        if len(word) < 3:
-            continue
-
-        if word in stopwords:
-            continue
-
-        if word not in vocabulary:
-            unknown.append(word)
-
-    return unknown
-
-def web_search(query):
-    try:
-        q = query.lower().strip()
-
-        for prefix in [
-            "what is ",
-            "what's ",
-            "who's ",
-            "explain ",
-            "meaning of ",
-            "what are ",
-            "who is ",
-            "who are ",
-            "tell me about ",
-            "define ",
-            "how do i"
-        ]:
-            if q.startswith(prefix):
-                q = q[len(prefix):]
-                break
-
-        q = q.rstrip("?.!,")
-
-        headers = {
-            "User-Agent": "WyntrAI/1.0 (Educational Chatbot)"
-        }
-
-        search_url = (
-            "https://en.wikipedia.org/w/api.php"
-            "?action=opensearch"
-            "&limit=1"
-            "&namespace=0"
-            "&format=json"
-            "&search="
-            + requests.utils.quote(q)
-        )
-
-        search_response = requests.get(
-            search_url,
-            timeout=10,
-            headers=headers
-        )
-
-        if search_response.status_code != 200:
-            log_activity(f"Wikipedia search failed: {search_response.status_code}")
-            return None
-
-        results = search_response.json()
-
-        if len(results[1]) == 0:
-            log_activity("No Wikipedia results found")
-            return None
-
-        title = results[1][0]
-
-        summary_url = (
-            "https://en.wikipedia.org/api/rest_v1/page/summary/"
-            + requests.utils.quote(title)
-        )
-
-        summary_response = requests.get(
-            summary_url,
-            timeout=10,
-            headers=headers
-        )
-
-        if summary_response.status_code != 200:
-            log_activity(f"Wikipedia summary failed: {summary_response.status_code}")
-            return None
-
-        data = summary_response.json()
-
-        if data.get("extract"):
-            return data["extract"]
-
-        return None
-
-    except Exception as e:
-        log_activity(f"Search error: {e}")
-        return None
-
-    return None
-
-def contains_unknown_words(sentence, vocabulary):
-    """
-    Detect words that do not exist in the model vocabulary.
-    """
-    words = re.findall(r"\b[a-zA-Z0-9]+\b", sentence.lower())
-
-    unknown = []
-
-    for word in words:
-        if word not in vocabulary:
-            unknown.append(word)
-
-    return len(unknown) > 0, unknown
-
-# ── Serve the frontend ──────────────────────────────────────────
-ACCESS_PASSWORD = "ithadbetterbetonight" 
+ACCESS_PASSWORD   = "ithadbetterbetonight"
 authenticated_ips = set()
 
 @app.route("/")
 def index():
-    client_ip = request.remote_addr
-
-    # 1. Check if they just submitted the password via query param
+    client_ip   = request.remote_addr
     provided_pw = request.args.get("pw")
     if provided_pw == ACCESS_PASSWORD:
         authenticated_ips.add(client_ip)
-        return redirect("/")  # Redirect to clear the password from the URL bar
-
-    # 2. Check if this computer is already authenticated in memory
+        return redirect("/")
     if client_ip in authenticated_ips:
         return send_file("index.html")
-
-    # 3. Otherwise, return a simple login prompt instead of the app
     return '''
         <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="background:#000;color:#7c6bff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;margin:0;padding:20px;box-sizing:border-box;">
-        <h1 style="margin-bottom:20px;letter-spacing:-1px;font-size:clamp(24px, 7vw, 32px);">Wyntr<span style="color:#fff;">AI</span> Access</h1>
-        <form method="GET" style="display:flex;flex-direction:column;gap:14px;align-items:center;width:100%;max-width:320px;">
-            <p style="line-height:1.5;color:#6b6b8a;margin:0 0 10px 0;text-align:center;font-size:14px;">Authorization is required to prevent malicious requests that might exhaust server resources or ruin the AI model.</p>
-            <input type="password" name="pw" placeholder="Enter Password" autofocus style="padding:14px;border-radius:10px;border:1px solid #2f3336;background:#080808;color:#fff;outline:none;width:100%;text-align:center;font-size:16px;box-sizing:border-box;">
-            <button type="submit" style="padding:14px 24px;background:#7c6bff;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:bold;width:100%;font-size:14px;box-sizing:border-box;">Unlock Interface</button>
-        </form>
-        </body>
+        <body style="background:#000;color:#7c6bff;display:flex;flex-direction:column;
+                     align-items:center;justify-content:center;min-height:100vh;
+                     font-family:sans-serif;margin:0;padding:20px;box-sizing:border-box;">
+        <h1 style="margin-bottom:20px;letter-spacing:-1px;font-size:clamp(24px,7vw,32px);">
+            Wyntr<span style="color:#fff;">AI</span> Access</h1>
+        <form method="GET" style="display:flex;flex-direction:column;gap:14px;
+                                   align-items:center;width:100%;max-width:320px;">
+            <p style="line-height:1.5;color:#6b6b8a;margin:0 0 10px 0;
+                      text-align:center;font-size:14px;">
+                Authorization is required to prevent malicious requests.</p>
+            <input type="password" name="pw" placeholder="Enter Password" autofocus
+                   style="padding:14px;border-radius:10px;border:1px solid #2f3336;
+                          background:#080808;color:#fff;outline:none;width:100%;
+                          text-align:center;font-size:16px;box-sizing:border-box;">
+            <button type="submit"
+                    style="padding:14px 24px;background:#7c6bff;color:#fff;border:none;
+                           border-radius:10px;cursor:pointer;font-weight:bold;
+                           width:100%;font-size:14px;box-sizing:border-box;">
+                Unlock Interface</button>
+        </form></body>
     ''', 401
+
+@app.route("/index.css")
+def serve_css():
+    return send_file("index.css")
+
+
+# ── Core predict endpoint ─────────────────────────────────────────────────────
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    global net, ck
+    global model, ck
 
-    sentence = request.json["sentence"]
+    sentence    = request.json["sentence"]
+    vocab       = ck["vocab"]
+    temperature = float(request.json.get("temperature", 0.8))
+    beam_width  = int(request.json.get("beam_width",    1))
+    max_len     = int(request.json.get("max_len", 40))
 
-    bow = bag_of_words(sentence, ck["all_words"])
+    src_indices = sentence_to_indices(sentence, vocab)
+    if not src_indices:
+        return jsonify({"response": "I didn't catch that.", "tag": "unknown", "confidence": 0.0})
 
-    import torch as t
+    src_tensor = torch.tensor([src_indices], dtype=torch.long)
 
-    x = t.tensor(bow, dtype=t.float32)
-
-    with t.no_grad():
-        acts = net.get_layer_activations(x)
-
-    probs = acts["output_probs"]
-
-    idx = probs.index(max(probs))
-    tag = ck["tags"][idx]
-    confidence = max(probs)
-
-    with open("data.json") as f:
-        data = json.load(f)
-
-    response = next(
-        (
-            random.choice(i["responses"])
-            for i in data["intents"]
-            if i["tag"] == tag
-        ),
-        "I don't understand yet."
-    )
-
-    # --------------------------------------------------
-    # Internet Search Logic
-    # --------------------------------------------------
-
-    search_triggers = [
-        "what is",
-        "what are",
-        "what was",
-        "what were",
-
-        "who is",
-        "who are",
-        "who was",
-
-        "when is",
-        "when was",
-
-        "where is",
-        "where are",
-
-        "why is",
-        "why are",
-        "why does",
-        "why do",
-
-        "how is",
-        "how are",
-        "how do",
-        "how does",
-        "how can",
-        "how to",
-
-        "define",
-        "meaning of",
-        "tell me about",
-        "explain",
-
-        "difference between",
-        "compare",
-        "versus",
-        "vs"
-    ]
-
-    lower_sentence = sentence.lower()
-
-    is_factual_query = any(
-        trigger in lower_sentence
-        for trigger in search_triggers
-    )
-
-    unknown_words = get_unknown_words(
-        sentence,
-        ck["all_words"]
-    )
-
-    question_words = (
-        "what",
-        "who",
-        "when",
-        "where",
-        "why",
-        "how"
-    )
-
-    is_question = lower_sentence.startswith(question_words)
-
-    should_search = (
-        is_question and
-        (
-            len(unknown_words) > 0
-            or confidence < 0.95
-            or tag == "confused"
-        )
-    )
-
-    if should_search:
-
-        log_activity(
-            f"Web search triggered. "
-            f"Confidence={confidence:.2f}, "
-            f"Tag={tag}, "
-            f"Unknown={unknown_words}, "
-            f"Question={is_question}"
+    with torch.no_grad():
+        output_indices = model.generate(
+            src_tensor,
+            max_len     = max_len,
+            temperature = temperature,
+            beam_width  = beam_width,
         )
 
-        search_result = web_search(sentence)
+    response   = indices_to_sentence(output_indices, vocab)
+    confidence = 1.0
+    tag        = "generated"
 
-        log_activity(f"Search result: {repr(search_result)}")
+    if not response.strip():
+        response = "hmm..."
 
-        if search_result:
-            response = search_result
-            tag = "internet_search"
-
-    log_activity(
-        f"Predicted: '{sentence[:30]}...' "
-        f"-> {tag} ({confidence*100:.0f}%)"
-    )
+    # Intentionally no log here — only data merges and retrains are logged
 
     return jsonify({
-        "tag": tag,
+        "tag":        tag,
         "confidence": confidence,
-        "probs": probs,
-        "activations": acts,
-        "response": response,
-        "all_words": ck["all_words"],
-        "tags": ck["tags"]
+        "response":   response,
+        "probs":      [],
+        "activations": {},
+        "all_words":  vocab,
+        "tags":       [],
     })
 
 
-@app.route('/learn', methods=['POST', 'OPTIONS'])
-def learn():
-    """Auto-learn: add user message as a pattern to the predicted intent tag."""
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'})
-    payload = request.json or {}
-    pattern = payload.get('pattern')
-    tag = payload.get('tag')
-    if not pattern or not tag:
-        return jsonify({'error': 'pattern and tag required'}), 400
+# ── Merge Dataset ─────────────────────────────────────────────────────────────
+
+@app.route("/merge-dataset", methods=["POST"])
+def merge_dataset():
+    client_ip = get_client_ip()
+    payload   = request.json or {}
+    new_convs = payload.get("conversations")
+
+    if not isinstance(new_convs, list) or len(new_convs) == 0:
+        return jsonify({"error": "conversations list is required and must not be empty"}), 400
+
+    # Validate each entry
+    for i, c in enumerate(new_convs):
+        if not isinstance(c.get("input"), str):
+            return jsonify({"error": f"Entry {i}: 'input' must be a string"}), 400
+        if not isinstance(c.get("replies"), list) or len(c["replies"]) == 0:
+            return jsonify({"error": f"Entry {i}: 'replies' must be a non-empty array"}), 400
+
     try:
-        with open('data.json') as f:
+        # 1. Send existing data.json to Discord before touching anything
+        send_discord_backup(
+            label=f"pre-merge backup — requested by {client_ip}",
+        )
+
+        # 2. Load, merge, write
+        with open("data.json") as f:
             data = json.load(f)
-        # find or create tag
-        tag_found = False
 
-        for intent in data['intents']:
-            if intent['tag'] == tag:
-                tag_found = True
+        if "conversations" not in data:
+            data["conversations"] = []
 
-                if pattern not in intent.get('patterns', []):
-                    intent.setdefault('patterns', []).append(pattern)
-                    log_activity(f"Auto-learned: '{pattern[:30]}...' for tag '{tag}'")
+        existing_inputs = {c["input"].lower().strip() for c in data["conversations"]}
+        added = 0
 
-                break
+        for conv in new_convs:
+            key = conv["input"].lower().strip()
+            if key in existing_inputs:
+                # Append new replies to existing entry
+                for existing in data["conversations"]:
+                    if existing["input"].lower().strip() == key:
+                        if "replies" not in existing:
+                            existing["replies"] = [existing.pop("reply")] if "reply" in existing else []
+                        for reply in conv["replies"]:
+                            if reply not in existing["replies"]:
+                                existing["replies"].append(reply)
+                        break
+            else:
+                data["conversations"].append({
+                    "input":   conv["input"],
+                    "replies": conv["replies"],
+                })
+                existing_inputs.add(key)
+                added += 1
 
-        if not tag_found:
-            data['intents'].append({
-                'tag': tag,
-                'patterns': [pattern],
-                'responses': []
-            })
-
-            log_activity(f"Created new tag '{tag}' with pattern '{pattern[:30]}...'")
-        with open('data.json', 'w') as f:
+        with open("data.json", "w") as f:
             json.dump(data, f, indent=2)
-        return jsonify({'status': 'ok'})
-    except Exception as e:
-        log_activity(f"Learn error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
-@app.route('/teach', methods=['POST'])
-def teach():
+        log_activity(
+            f"Dataset merged — {added} new entries added ({len(new_convs)} submitted)",
+            ip=client_ip,
+        )
+        return jsonify({"status": "ok", "added": added})
+
+    except Exception as e:
+        log_activity(f"Merge error: {e}", ip=client_ip)
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Learn / Teach / Retrain ───────────────────────────────────────────────────
+
+@app.route("/learn", methods=["POST", "OPTIONS"])
+def learn():
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"})
     payload = request.json or {}
-    pattern = payload.get('pattern')
-    response_text = payload.get('response')
-    tag = payload.get('tag')
+    pattern = payload.get("pattern")
+    tag     = payload.get("tag")
+    if not pattern or not tag:
+        return jsonify({"error": "pattern and tag required"}), 400
+    try:
+        with open("data.json") as f:
+            data = json.load(f)
+        tag_found = False
+        for intent in data["intents"]:
+            if intent["tag"] != tag:
+                continue
+            tag_found = True
+            if "pairs" in intent:
+                existing = [p["pattern"] for p in intent["pairs"]]
+                if pattern not in existing:
+                    intent["pairs"].append({"pattern": pattern, "responses": []})
+            else:
+                if pattern not in intent.get("patterns", []):
+                    intent.setdefault("patterns", []).append(pattern)
+            break
+        if not tag_found:
+            data["intents"].append({"tag": tag, "patterns": [pattern], "responses": []})
+        with open("data.json", "w") as f:
+            json.dump(data, f, indent=2)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/teach", methods=["POST"])
+def teach():
+    payload       = request.json or {}
+    pattern       = payload.get("pattern")
+    response_text = payload.get("response")
+    
     if not pattern or not response_text:
-        return jsonify({'error': 'pattern and response required'}), 400
-    with open('data.json') as f:
+        return jsonify({"error": "pattern and response required"}), 400
+        
+    with open("data.json") as f:
         data = json.load(f)
-    # find or create tag
-    if tag:
-        for intent in data['intents']:
-            if intent['tag'] == tag:
-                intent.setdefault('patterns', []).append(pattern)
-                intent.setdefault('responses', []).append(response_text)
-                break
-        else:
-            data['intents'].append({'tag': tag, 'patterns': [pattern], 'responses': [response_text]})
+        
+    if "conversations" not in data:
+        data["conversations"] = []
+        
+    matched_conv = None
+    for conv in data["conversations"]:
+        if conv.get("input", "").lower().strip() == pattern.lower().strip():
+            matched_conv = conv
+            break
+            
+    if matched_conv:
+        if "replies" not in matched_conv:
+            old_reply = matched_conv.pop("reply", None)
+            matched_conv["replies"] = [old_reply] if old_reply else []
+        if response_text not in matched_conv["replies"]:
+            matched_conv["replies"].append(response_text)
     else:
-        # append to a generic 'misc' tag if exists or create new
-        if data['intents']:
-            data['intents'][0].setdefault('patterns', []).append(pattern)
-            data['intents'][0].setdefault('responses', []).append(response_text)
-        else:
-            data['intents'].append({'tag': 'new', 'patterns': [pattern], 'responses': [response_text]})
-    with open('data.json', 'w') as f:
+        data["conversations"].append({
+            "input": pattern,
+            "replies": [response_text]
+        })
+    
+    with open("data.json", "w") as f:
         json.dump(data, f, indent=2)
-    log_activity(f"Manual teach: '{pattern[:30]}...' for tag '{tag}'")
-    return jsonify({'status': 'ok'})
+        
+    return jsonify({"status": "ok"})
 
 
 def _retrain_and_reload():
-    # run train.py synchronously and reload model when done
-    global retrain_status, last_retrain_log, net, ck
-    retrain_status = 'running'
-    last_retrain_log = ''
+    global retrain_status, last_retrain_log, model, ck
+    retrain_status   = "running"
+    last_retrain_log = ""
+
+    ip = _retrain_and_reload._trigger_ip if hasattr(_retrain_and_reload, "_trigger_ip") else "unknown"
+
     try:
-        p = subprocess.run([sys.executable, 'train.py'], check=False, capture_output=True, text=True)
-        last_retrain_log = (p.stdout or '') + '\n' + (p.stderr or '')
+        p = subprocess.Popen(
+            [sys.executable, "-u", "train.py"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        stdout_lines = []
+        # Stream stdout line by line so we can log epoch progress live
+        for line in p.stdout:
+            line = line.rstrip()
+            stdout_lines.append(line)
+            last_retrain_log = "\n".join(stdout_lines)
+            if "Epoch" in line:
+                log_activity(f"Retraining — {line.strip()}", ip=ip)
+
+        p.wait()
+        stderr_out = p.stderr.read()
+        if stderr_out:
+            last_retrain_log += "\n" + stderr_out
+
         if p.returncode == 0:
-            # try reloading model
             try:
                 time.sleep(0.3)
-                net, ck = load()
-                retrain_status = 'done'
+                model, ck      = load()
+                retrain_status = "done"
+                log_activity("Model retrain completed successfully", ip=ip)
             except Exception as e:
-                retrain_status = 'failed'
+                retrain_status    = "failed"
                 last_retrain_log += f"\nReload failed: {e}"
+                log_activity(f"Model reload failed after retrain: {e}", ip=ip)
         else:
-            retrain_status = 'failed'
+            retrain_status = "failed"
+            err_lines = [l.strip() for l in stderr_out.splitlines() if l.strip()]
+            short_err = err_lines[-1] if err_lines else "unknown error"
+            log_activity(f"Model retrain failed — {short_err}", ip=ip)
+
     except Exception as e:
-        retrain_status = 'failed'
+        retrain_status    = "failed"
         last_retrain_log += f"\nException: {e}"
+        log_activity(f"Retrain exception: {e}", ip=ip)
 
 
-@app.route('/retrain', methods=['POST'])
+@app.route("/retrain", methods=["POST"])
 def retrain():
-    # start background retrain
     global retrain_status
-    if retrain_status == 'running':
-        return jsonify({'status': 'already_running'}), 409
+    client_ip = get_client_ip()
+    if retrain_status == "running":
+        return jsonify({"status": "already_running"}), 409
+    log_activity("Model retrain initiated", ip=client_ip)
+    _retrain_and_reload._trigger_ip = client_ip
     t = threading.Thread(target=_retrain_and_reload, daemon=True)
     t.start()
-    return jsonify({'status': 'started'})
-    
-@app.route('/download-backup')
+    return jsonify({"status": "started"})
+
+
+# ── Utility routes ────────────────────────────────────────────────────────────
+
+@app.route("/download-backup")
 def download_backup():
-    with zipfile.ZipFile('backup.zip', 'w') as z:
-        z.write('model.pth')
-        z.write('data.json')
+    with zipfile.ZipFile("backup.zip", "w") as z:
+        z.write("model.pth")
+        z.write("data.json")
+    return send_file("backup.zip", as_attachment=True, download_name="wyntr_backup.zip")
 
-    return send_file(
-        'backup.zip',
-        as_attachment=True,
-        download_name='wyntr_backup.zip'
-    )
 
-@app.route('/check-pattern', methods=['POST'])
+@app.route("/check-pattern", methods=["POST"])
 def check_pattern():
-    data = request.json
-    pattern = data.get('pattern', '')
-    tag = data.get('tag', '')
-
+    payload = request.json
+    pattern = payload.get("pattern", "")
+    tag     = payload.get("tag", "")
     try:
-        with open('data.json') as f:
+        with open("data.json") as f:
             file_data = json.load(f)
-
-        # Check if pattern already exists in the specified tag
-        for intent in file_data.get('intents', []):
-            if intent.get('tag') == tag:
-                patterns = intent.get('patterns', [])
-                # Case-insensitive check
+        for intent in file_data.get("intents", []):
+            if intent.get("tag") == tag:
+                patterns = intent.get("patterns", [])
                 if any(p.lower() == pattern.lower() for p in patterns):
-                    return jsonify({'exists': True})
-
-        return jsonify({'exists': False})
+                    return jsonify({"exists": True})
+        return jsonify({"exists": False})
     except Exception as e:
-        log_activity(f"Check pattern error: {str(e)}")
-        return jsonify({'exists': False, 'error': str(e)})
+        return jsonify({"exists": False, "error": str(e)})
 
-@app.route('/stats')
+
+@app.route("/stats")
 def stats():
-    with open('data.json') as f:
+    with open("data.json") as f:
         data = json.load(f)
-    vocab = ck.get('all_words') if ck else []
-    tags = ck.get('tags') if ck else []
-    samples = sum(len(i.get('patterns', [])) for i in data.get('intents', []))
-    return jsonify({'vocab_size': len(vocab), 'num_tags': len(tags), 'samples': samples, 'retrain_status': retrain_status, 'retrain_log': last_retrain_log[:4000]})
+    vocab   = ck.get("vocab", [])
+    samples = sum(
+        len(i.get("patterns", [])) + sum(1 for _ in i.get("pairs", []))
+        for i in data.get("intents", [])
+    )
+    return jsonify({
+        "vocab_size":     len(vocab),
+        "num_tags":       len(set(i["tag"] for i in data.get("intents", []))),
+        "samples":        samples,
+        "retrain_status": retrain_status,
+        "retrain_log":    last_retrain_log[:4000],
+    })
 
-@app.route('/logs', methods=['GET', 'OPTIONS'])
+
+@app.route("/logs", methods=["GET", "OPTIONS"])
 def logs():
-    """Return recent activity logs."""
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'})
-    return jsonify({'logs': activity_logs[-50:] if activity_logs else []})
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"})
+    return jsonify({"logs": activity_logs[-50:] if activity_logs else []})
+
 
 @app.route("/weights")
 def weights():
-    sd = {k: v.tolist() for k, v in net.state_dict().items()}
-    return jsonify({**sd, "all_words": ck["all_words"], "tags": ck["tags"]})
+    vocab = ck.get("vocab", [])
+    return jsonify({
+        "vocab":      vocab,
+        "vocab_size": len(vocab),
+        "model_type": "seq2seq",
+    })
+
 
 if __name__ == "__main__":
-    log_activity("Server started")
+    log_activity("Server started (seq2seq mode)")
     port = int(os.environ.get("PORT", 7860))
     app.run(host="0.0.0.0", port=port)
