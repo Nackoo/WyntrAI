@@ -28,6 +28,11 @@
     --font-display: 'Syne', sans-serif;
 }
 
+.disabled{
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
 ::-webkit-scrollbar { 
     width: 7px;
 }

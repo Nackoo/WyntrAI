@@ -1,4 +1,3 @@
-# server.py — seq2seq chatbot backend
 from flask import Flask, jsonify, request, send_file, redirect
 from flask_cors import CORS
 import torch, json, random, os, threading, subprocess, time, sys, zipfile, re
@@ -21,8 +20,6 @@ def add_cors_headers(response):
     return response
 
 
-# ── Discord Webhook ───────────────────────────────────────────────────────────
-# Set this environment variable to your Discord webhook URL
 DISCORD_WEBHOOK_URL = os.environ.get(
     "DISCORD_WEBHOOK_URL",
     "https://discord.com/api/webhooks/1511103886675542167/4eMVxXWQ6j3jIYzyczADxkPPsU-9kqhgRY_DYaROQQA8HssKFI_gml9jYo-voh9QRrho",
@@ -47,7 +44,7 @@ def send_discord_backup(label: str, data_json_path: str = "data.json"):
         log_activity(f"Discord backup failed: {e}")
 
 
-# ── Model loading ─────────────────────────────────────────────────────────────
+# ── Model loading ───
 
 def load():
     ck = torch.load("model.pth", weights_only=False)
@@ -84,7 +81,7 @@ last_retrain_log = ""
 activity_logs    = []
 
 
-# ── Logging ───────────────────────────────────────────────────────────────────
+# ── Logging ──
 
 def log_activity(message, ip=None):
     global activity_logs
@@ -105,8 +102,7 @@ def get_client_ip():
     return request.remote_addr
 
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
-
+# ── Auth ───
 ACCESS_PASSWORD   = "ithadbetterbetonight"
 authenticated_ips = set()
 
@@ -148,7 +144,7 @@ def serve_css():
     return send_file("index.css")
 
 
-# ── Core predict endpoint ─────────────────────────────────────────────────────
+# ── Core predict endpoint ──
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -181,8 +177,6 @@ def predict():
     if not response.strip():
         response = "hmm..."
 
-    # Intentionally no log here — only data merges and retrains are logged
-
     return jsonify({
         "tag":        tag,
         "confidence": confidence,
@@ -194,7 +188,7 @@ def predict():
     })
 
 
-# ── Merge Dataset ─────────────────────────────────────────────────────────────
+# ── Merge Dataset ───
 
 @app.route("/merge-dataset", methods=["POST"])
 def merge_dataset():
@@ -262,80 +256,7 @@ def merge_dataset():
         return jsonify({"error": str(e)}), 500
 
 
-# ── Learn / Teach / Retrain ───────────────────────────────────────────────────
-
-@app.route("/learn", methods=["POST", "OPTIONS"])
-def learn():
-    if request.method == "OPTIONS":
-        return jsonify({"status": "ok"})
-    payload = request.json or {}
-    pattern = payload.get("pattern")
-    tag     = payload.get("tag")
-    if not pattern or not tag:
-        return jsonify({"error": "pattern and tag required"}), 400
-    try:
-        with open("data.json") as f:
-            data = json.load(f)
-        tag_found = False
-        for intent in data["intents"]:
-            if intent["tag"] != tag:
-                continue
-            tag_found = True
-            if "pairs" in intent:
-                existing = [p["pattern"] for p in intent["pairs"]]
-                if pattern not in existing:
-                    intent["pairs"].append({"pattern": pattern, "responses": []})
-            else:
-                if pattern not in intent.get("patterns", []):
-                    intent.setdefault("patterns", []).append(pattern)
-            break
-        if not tag_found:
-            data["intents"].append({"tag": tag, "patterns": [pattern], "responses": []})
-        with open("data.json", "w") as f:
-            json.dump(data, f, indent=2)
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/teach", methods=["POST"])
-def teach():
-    payload       = request.json or {}
-    pattern       = payload.get("pattern")
-    response_text = payload.get("response")
-    
-    if not pattern or not response_text:
-        return jsonify({"error": "pattern and response required"}), 400
-        
-    with open("data.json") as f:
-        data = json.load(f)
-        
-    if "conversations" not in data:
-        data["conversations"] = []
-        
-    matched_conv = None
-    for conv in data["conversations"]:
-        if conv.get("input", "").lower().strip() == pattern.lower().strip():
-            matched_conv = conv
-            break
-            
-    if matched_conv:
-        if "replies" not in matched_conv:
-            old_reply = matched_conv.pop("reply", None)
-            matched_conv["replies"] = [old_reply] if old_reply else []
-        if response_text not in matched_conv["replies"]:
-            matched_conv["replies"].append(response_text)
-    else:
-        data["conversations"].append({
-            "input": pattern,
-            "replies": [response_text]
-        })
-    
-    with open("data.json", "w") as f:
-        json.dump(data, f, indent=2)
-        
-    return jsonify({"status": "ok"})
-
+# ── Retrain ──
 
 def _retrain_and_reload():
     global retrain_status, last_retrain_log, model, ck
@@ -401,7 +322,7 @@ def retrain():
     return jsonify({"status": "started"})
 
 
-# ── Utility routes ────────────────────────────────────────────────────────────
+# ── Utility routes ──
 
 @app.route("/download-backup")
 def download_backup():
@@ -433,14 +354,14 @@ def check_pattern():
 def stats():
     with open("data.json") as f:
         data = json.load(f)
-    vocab   = ck.get("vocab", [])
-    samples = sum(
-        len(i.get("patterns", [])) + sum(1 for _ in i.get("pairs", []))
-        for i in data.get("intents", [])
-    )
+    vocab = ck.get("vocab", [])
+    
+    conversations = data.get("conversations", [])
+    samples = sum(len(c.get("replies", [])) for c in conversations)
+    
     return jsonify({
         "vocab_size":     len(vocab),
-        "num_tags":       len(set(i["tag"] for i in data.get("intents", []))),
+        "num_tags":       0, 
         "samples":        samples,
         "retrain_status": retrain_status,
         "retrain_log":    last_retrain_log[:4000],

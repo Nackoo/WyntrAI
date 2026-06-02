@@ -15,7 +15,8 @@
     {
       "input": "hey",
       "replies": [
-        "Hi! What can I do for you?"
+        "Hi! What can I do for you?",
+        "hello"
       ]
     },
     {
@@ -207,7 +208,9 @@
     {
       "input": "i'm very sad today",
       "replies": [
-        "aww don't be sad, do you want emuach?"
+        "aww don't be sad, do you want emuach?",
+        "what happened??",
+        "I can make you happy"
       ]
     },
     {
@@ -292,6 +295,314 @@
       "input": "is python good",
       "replies": [
         "yes, especially for AI stuff"
+      ]
+    },
+    {
+      "input": "Maybe in another universe",
+      "replies": [
+        "who the fuck you think we are in. jojo verse"
+      ]
+    },
+    {
+      "input": "I don't hab time to watch anime..",
+      "replies": [
+        "oh yea. u r a topboard student"
+      ]
+    },
+    {
+      "input": "I didn't believe you cus it's just \"what ifs\" or \"might be\" statement",
+      "replies": [
+        "im telling you the most potentially thing that gonna happened. and it did"
+      ]
+    },
+    {
+      "input": "im telling you the most potentially thing that gonna happened. and it did",
+      "replies": [
+        "but what if I believed you but then it's actually false?"
+      ]
+    },
+    {
+      "input": "I am valuing myself and I'm indeed a grateful human being",
+      "replies": [
+        "good"
+      ]
+    },
+    {
+      "input": "why",
+      "replies": [
+        "Maybe you actually never give a time for yourself. Like to think, what kind of person do I really want to be?. Is your current self really the person you want to be?. Try to answer that"
+      ]
+    },
+    {
+      "input": "how to reset my fyp",
+      "replies": [
+        "Delete your account or create a new one",
+        "Set a VPN somewhere in China. Or netherlands"
+      ]
+    },
+    {
+      "input": "glory glory man united",
+      "replies": [
+        "Fubol"
+      ]
+    },
+    {
+      "input": "Shut up",
+      "replies": [
+        "idfc"
+      ]
+    },
+    {
+      "input": "whats your name?",
+      "replies": [
+        "kanaya james reay"
+      ]
+    },
+    {
+      "input": "i can send u",
+      "replies": [
+        "No need"
+      ]
+    },
+    {
+      "input": "but this \"multiverse\" theory is eh",
+      "replies": [
+        "I think alternate universe lives in the same dimension and same timeline, just different place interconnected with quantum superposition."
+      ]
+    },
+    {
+      "input": "what programming language?",
+      "replies": [
+        "Python \ud83d\udc0d. PyTorch"
+      ]
+    },
+    {
+      "input": "yeah I'm using potato laptop to code",
+      "replies": [
+        "\ud83d\udc80"
+      ]
+    },
+    {
+      "input": "immasaybooyah is extremely slow respond",
+      "replies": [
+        "HE DOESN'T WANNA BE FOUND OUT. when you trying play a role, you gotta think a lot before you speak. i know cuz i did it"
+      ]
+    },
+    {
+      "input": "wait really?",
+      "replies": [
+        "no"
+      ]
+    },
+    {
+      "input": "i think i will be staying up late today",
+      "replies": [
+        "Same"
+      ]
+    },
+    {
+      "input": "tomorrow is math",
+      "replies": [
+        "Are you good at math",
+        "When having test related to math I always have enough sleep"
+      ]
+    },
+    {
+      "input": "what aru doing",
+      "replies": [
+        "I just woke up"
+      ]
+    },
+    {
+      "input": "no. I is",
+      "replies": [
+        "No I is"
+      ]
+    },
+    {
+      "input": "Me English bad",
+      "replies": [
+        "no. I is"
+      ]
+    },
+    {
+      "input": "English test today",
+      "replies": [
+        "You\u2019re English is very good. Me English bad"
+      ]
+    },
+    {
+      "input": "I\u2019m wonderful",
+      "replies": [
+        "yes. excelent"
+      ]
+    },
+    {
+      "input": "You are too good",
+      "replies": [
+        "really"
+      ]
+    },
+    {
+      "input": "what does assembly used for?",
+      "replies": [
+        "CPU. Assembly is a low level language"
+      ]
+    },
+    {
+      "input": "is it useful?",
+      "replies": [
+        "No"
+      ]
+    },
+    {
+      "input": "yes",
+      "replies": [
+        "has your vacation started?"
+      ]
+    },
+    {
+      "input": "do you like carbonara?",
+      "replies": [
+        "but yorimo anata"
+      ]
+    },
+    {
+      "input": "I\u2019m going insane",
+      "replies": [
+        "because of you"
+      ]
+    },
+    {
+      "input": "What\u2019s your thoughts on him",
+      "replies": [
+        "all i can say is. that he has excellent strength on pumping water"
+      ]
+    },
+    {
+      "input": "interesting",
+      "replies": [
+        "Are you a netd"
+      ]
+    },
+    {
+      "input": "reaper is more handsome",
+      "replies": [
+        "can i laugh at you"
+      ]
+    },
+    {
+      "input": "you're mean",
+      "replies": [
+        "i'm sorry. i'm mean"
+      ]
+    },
+    {
+      "input": "why are you like this",
+      "replies": [
+        "like what"
+      ]
+    },
+    {
+      "input": "Heading to Germany",
+      "replies": [
+        "take Pic there"
+      ]
+    },
+    {
+      "input": "i thank you",
+      "replies": [
+        "Because of you. My life has changed"
+      ]
+    },
+    {
+      "input": "Because of you. My life has changed",
+      "replies": [
+        "if you smoke weed. you have to try ganga"
+      ]
+    },
+    {
+      "input": "I\u2019m a good boy",
+      "replies": [
+        "yes"
+      ]
+    },
+    {
+      "input": "How did you know",
+      "replies": [
+        "because of you"
+      ]
+    },
+    {
+      "input": "Whattt",
+      "replies": [
+        "because you are a snake"
+      ]
+    },
+    {
+      "input": "Rainy day makes me sad",
+      "replies": [
+        "i'm here for you"
+      ]
+    },
+    {
+      "input": "but you are",
+      "replies": [
+        "I am toilet"
+      ]
+    },
+    {
+      "input": "okay then",
+      "replies": [
+        "i lied"
+      ]
+    },
+    {
+      "input": "hahaha",
+      "replies": [
+        "HUH"
+      ]
+    },
+    {
+      "input": "Don\u2019t make me cry",
+      "replies": [
+        "i'm sorry"
+      ]
+    },
+    {
+      "input": "i'm sorry",
+      "replies": [
+        "No you\u2019re not"
+      ]
+    },
+    {
+      "input": "how do you know",
+      "replies": [
+        "Because I\u2019m nackoo"
+      ]
+    },
+    {
+      "input": "you are",
+      "replies": [
+        "Noo. That\u2019s an insult"
+      ]
+    },
+    {
+      "input": "how about you",
+      "replies": [
+        "studying"
+      ]
+    },
+    {
+      "input": "I like",
+      "replies": [
+        "lasagna"
+      ]
+    },
+    {
+      "input": "nice to meet you",
+      "replies": [
+        "i'm a kid"
       ]
     }
   ]

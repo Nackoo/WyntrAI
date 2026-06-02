@@ -12,8 +12,8 @@
   <header class="layout-header">
     <div class="logo" onclick="switchPage('chat')">Wyntr<span>AI</span></div>
     <nav class="nav-tabs">
-      <button id="btn-chat" class="tab-btn active" onclick="switchPage('chat')">💬 Conversation</button>
-      <button id="btn-inspect" class="tab-btn" onclick="switchPage('inspect')">🔬 Inspect Engine</button>
+      <button id="btn-chat" class="tab-btn active" onclick="switchPage('chat')">Conversation</button>
+      <button id="btn-inspect" class="tab-btn" onclick="switchPage('inspect')">Inspect Engine</button>
     </nav>
     <div class="server-status" id="serverStatus">
       <span class="status-dot"></span>
@@ -87,7 +87,7 @@
               <div class="stat-box"><div class="stat-val" id="statVocab">—</div><div class="stat-lbl">Active Vocab</div></div>
               <div class="stat-box"><div class="stat-val" id="statSamples">—</div><div class="stat-lbl">Samples Loaded</div></div>
             </div>
-            <button class="action-btn" style="justify-content:center;" onclick="window.open(`${SERVER}/download-backup`)">Download Dataset Backup (.zip)</button>
+            <button class="action-btn" style="justify-content:center;" onclick="if (confirm('confirm backup?')) window.open(`${SERVER}/download-backup`)">Download Dataset Backup (.zip)</button>
           </div>
 
           <div class="panel">
@@ -99,7 +99,7 @@
                   <span id="fileInputName">Choose file…</span>
                   <input type="file" id="jsonFileInput" accept=".json" onchange="handleFileSelect(event)">
                 </label>
-                <button class="action-btn merge-btn" id="mergeBtn" onclick="if (!confirm('confirm merge?')) return; if(!confirm('are you sure?')) executeMerge()" disabled>⊕ Merge</button>
+                <button class="action-btn merge-btn" id="mergeBtn" onclick="if (confirm('confirm merge?')) executeMerge()" disabled>⊕ Merge</button>
               </div>
             </div>
 
@@ -237,7 +237,6 @@
     }
 
     async function executeMerge() {
-      closeMergeModal2();
       if (!pendingMergeData) return;
 
       const mergeBtn = document.getElementById('mergeBtn');
@@ -292,10 +291,12 @@
 
         if (data.retrain_status === 'running') {
           retrainBtn.disabled = true;
+          retrainBtn.classList.add("disabled");
           retrainBtn.textContent = 'Retraining in progress...';
         } else if (retrainBtn.textContent !== 'Executing Backpropagation...') {
           retrainBtn.disabled = false;
           retrainBtn.textContent = 'Retrain Model weights';
+          retrainBtn.classList.remove("disabled");
         }
 
         statusEl.classList.add('online');

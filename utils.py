@@ -6,7 +6,7 @@ import re
 import numpy as np
 import torch
 
-# ── Special tokens ────────────────────────────────────────────────────────────
+# ── Special tokens ──
 PAD_TOKEN = "<PAD>"   # index 0  — padding to equal-length batches
 SOS_TOKEN = "<SOS>"   # index 1  — start-of-sequence (fed to decoder first)
 EOS_TOKEN = "<EOS>"   # index 2  — end-of-sequence   (stop signal)
@@ -20,10 +20,10 @@ UNK_IDX = 3
 
 
 def tokenize(sentence: str) -> list[str]:
-    """Lowercase, strip punctuation (keep apostrophes), split into words."""
+    """Lowercase, keep punctuation and emojis as separate tokens, split into words."""
     sentence = sentence.lower().strip()
-    sentence = re.sub(r"[^a-z0-9\s']", " ", sentence)
-    return sentence.split()
+    # Captures words/numbers/apostrophes ([a-z0-9']+) OR any isolated special character/emoji ([^a-z0-9\s])
+    return re.findall(r"[a-z0-9']+|[^a-z0-9\s]", sentence)
 
 
 def build_vocab(sentences: list[str]) -> list[str]:
@@ -87,7 +87,7 @@ def collate_fn(batch, pad_idx: int = PAD_IDX):
     return src_padded, trg_padded
 
 
-# ── Legacy helpers (kept for any existing callers) ────────────────────────────
+# ── Legacy helpers (kept for any existing callers) ───
 
 def stem(word: str) -> str:
     suffixes = ["ing", "tion", "ness", "ment", "ies", "es", "ed", "er", "ly", "s"]

@@ -15,7 +15,7 @@ from utils import (
     PAD_IDX, SOS_IDX, EOS_IDX,
 )
 
-# ── 1. Load data.json and extract multi-reply conversational pairs ───────────
+# ── 1. Load data.json and extract multi-reply conversational pairs ───
 
 with open("data.json") as f:
     data = json.load(f)
@@ -42,7 +42,7 @@ if not pairs:
 
 print(f"Training pairs : {len(pairs)}")
 
-# ── 2. Build shared vocabulary ───────────────────────────────────────────────
+# ── 2. Build shared vocabulary ──
 
 all_sentences = [p for p, _ in pairs] + [r for _, r in pairs]
 vocab = build_vocab(all_sentences)
@@ -50,7 +50,7 @@ vocab_size = len(vocab)
 print(f"Vocabulary size: {vocab_size}")
 
 
-# ── 3. Dataset ────────────────────────────────────────────────────────────────
+# ── 3. Dataset ──
 
 class Seq2SeqDataset(Dataset):
     def __init__(self, pairs, vocab):
@@ -84,7 +84,7 @@ loader = DataLoader(
 )
 
 
-# ── 4. Model hyperparameters ──────────────────────────────────────────────────
+# ── 4. Model hyperparameters ──
 
 EMBED_DIM   = 64
 HIDDEN_SIZE = 256
@@ -95,7 +95,7 @@ LR          = 1e-3
 CLIP        = 1.0
 
 
-# ── 5. Initialise model ───────────────────────────────────────────────────────
+# ── 5. Initialise model ──
 
 encoder = Encoder(vocab_size, EMBED_DIM, HIDDEN_SIZE, NUM_LAYERS, DROPOUT)
 decoder = Decoder(vocab_size, EMBED_DIM, HIDDEN_SIZE, NUM_LAYERS, DROPOUT)
@@ -118,7 +118,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 )
 
 
-# ── 6. Training loop ──────────────────────────────────────────────────────────
+# ── 6. Training loop ──
 
 print("\nTraining…")
 
@@ -129,8 +129,8 @@ def teacher_forcing_ratio(epoch: int) -> float:
 
 for epoch in range(1, EPOCHS + 1):
     model.train()
-    total_loss   = 0.0   # FIX: reset each epoch (was never accumulated)
-    total_tokens = 0     # FIX: reset each epoch (was never accumulated)
+    total_loss   = 0.0
+    total_tokens = 0
     tf_ratio     = teacher_forcing_ratio(epoch)
 
     for src, trg in loader:
@@ -153,7 +153,6 @@ for epoch in range(1, EPOCHS + 1):
         torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
         optimizer.step()
 
-        # FIX: actually accumulate loss and token counts
         non_pad = target_flat.ne(PAD_IDX).sum().item()
         total_loss   += loss.item() * non_pad
         total_tokens += non_pad
@@ -167,7 +166,7 @@ for epoch in range(1, EPOCHS + 1):
 print("Done!\n")
 
 
-# ── 7. Save checkpoint ────────────────────────────────────────────────────────
+# ── 7. Save checkpoint ───
 
 torch.save(
     {
