@@ -1,109 +1,154 @@
+"""
+model.py — Transformer encoder-decoder chatbot.
+
+Changes vs original:
+  - dim_feedforward is now a constructor param (default 4 * embed_dim) so it
+    scales automatically with embed_dim instead of being hardcoded at 2048.
+  - model.pth now stores dim_feedforward; server.py / inference code should
+    pass it when rebuilding the model from the checkpoint.
+"""
+
+import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+
+class PositionalEncoding(nn.Module):
+    """Classic sinusoidal positional encoding (Vaswani et al., 2017)."""
+
+    def __init__(self, embed_dim: int, dropout: float = 0.1, max_len: int = 512):
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+
+        pe       = torch.zeros(max_len, embed_dim)
+        position = torch.arange(0, max_len).unsqueeze(1).float()
+        div_term = torch.exp(
+            torch.arange(0, embed_dim, 2).float() * (-math.log(10000.0) / embed_dim)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        x = x + self.pe[:, : x.size(1)]
+        return self.dropout(x)
 
 
 class Encoder(nn.Module):
     """
-    Reads the input sequence and compresses it into a context vector.
-    Each word is looked up in an embedding table, then processed by an LSTM.
-    The final hidden + cell state is the "meaning" of the input sentence.
+    Transformer encoder.
+    Reads the full input sequence with bidirectional (non-causal) self-attention.
     """
 
-    def __init__(self, vocab_size: int, embed_dim: int, hidden_size: int, num_layers: int = 2, dropout: float = 0.3):
+    def __init__(
+        self,
+        vocab_size:      int,
+        embed_dim:       int,
+        hidden_size:     int,           
+        num_layers:      int   = 3,
+        dropout:         float = 0.1,
+        nhead:           int   = 8,
+        dim_feedforward: int   = 0,     
+    ):
         super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
-        self.lstm = nn.LSTM(
-            embed_dim, hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0.0,
+        d_model = embed_dim
+        if dim_feedforward <= 0:
+            dim_feedforward = 4 * d_model
+
+        while d_model % nhead != 0 and nhead > 1:
+            nhead -= 1
+
+        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
+        self.pos_enc   = PositionalEncoding(d_model, dropout)
+        encoder_layer  = nn.TransformerEncoderLayer(
+            d_model         = d_model,
+            nhead           = nhead,
+            dim_feedforward = dim_feedforward,
+            dropout         = dropout,
+            batch_first     = True,
+            norm_first      = True,
         )
-        self.dropout = nn.Dropout(dropout)
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=num_layers,
+            norm=nn.LayerNorm(d_model),
+        )
+        self.d_model = d_model
 
-    def forward(self, src):
-        # src: (batch, seq_len)  token indices
-        embedded = self.dropout(self.embedding(src))          # (batch, seq_len, embed_dim)
-        outputs, (hidden, cell) = self.lstm(embedded)
-        # outputs: (batch, seq_len, hidden)  — all timestep outputs
-        # hidden / cell: (num_layers, batch, hidden)
-        return outputs, hidden, cell
-
-
-class Attention(nn.Module):
-    """
-    Bahdanau-style additive attention.
-    At each decoder step, the decoder looks back at every encoder output
-    and decides how much to attend to each position.
-    This fixes the bottleneck of a single context vector for long inputs.
-    """
-
-    def __init__(self, hidden_size: int):
-        super().__init__()
-        self.attn = nn.Linear(hidden_size * 2, hidden_size)
-        self.v    = nn.Linear(hidden_size, 1, bias=False)
-
-    def forward(self, decoder_hidden, encoder_outputs):
-        # decoder_hidden:  (batch, hidden)  — top layer of decoder
-        # encoder_outputs: (batch, src_len, hidden)
-        src_len = encoder_outputs.size(1)
-        hidden  = decoder_hidden.unsqueeze(1).repeat(1, src_len, 1)  # (batch, src_len, hidden)
-        energy  = torch.tanh(self.attn(torch.cat([hidden, encoder_outputs], dim=2)))  # (batch, src_len, hidden)
-        scores  = self.v(energy).squeeze(2)                           # (batch, src_len)
-        weights = torch.softmax(scores, dim=1)                        # (batch, src_len)
-        context = torch.bmm(weights.unsqueeze(1), encoder_outputs)    # (batch, 1, hidden)
-        return context.squeeze(1), weights                            # (batch, hidden), (batch, src_len)
+    def forward(self, src, src_key_padding_mask=None):
+        x      = self.embedding(src) * math.sqrt(self.d_model)
+        x      = self.pos_enc(x)
+        memory = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)
+        return memory   # (batch, src_len, d_model)
 
 
 class Decoder(nn.Module):
     """
-    Generates the response one token at a time.
-    At each step it receives:
-      - the previous token (or <SOS> at step 0)
-      - its own previous hidden/cell state
-      - an attention-weighted summary of the encoder outputs
+    Transformer decoder.
+    Uses causal (masked) self-attention + cross-attention over encoder memory.
     """
 
-    def __init__(self, vocab_size: int, embed_dim: int, hidden_size: int, num_layers: int = 2, dropout: float = 0.3):
+    def __init__(
+        self,
+        vocab_size:      int,
+        embed_dim:       int,
+        hidden_size:     int,
+        num_layers:      int   = 3,
+        dropout:         float = 0.1,
+        nhead:           int   = 8,
+        dim_feedforward: int   = 0,     # 0 → auto: 4 * embed_dim
+    ):
         super().__init__()
+        d_model = embed_dim
         self.vocab_size = vocab_size
-        self.embedding  = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
-        self.attention  = Attention(hidden_size)
-        # input to LSTM = embedding + context vector
-        self.lstm = nn.LSTM(
-            embed_dim + hidden_size, hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0.0,
-        )
-        self.fc_out  = nn.Linear(hidden_size * 2, vocab_size)
-        self.dropout = nn.Dropout(dropout)
+        if dim_feedforward <= 0:
+            dim_feedforward = 4 * d_model
 
-    def forward_step(self, token, hidden, cell, encoder_outputs):
-        """Single decoding step. Returns logits, new hidden, new cell."""
-        # token: (batch,)
-        embedded = self.dropout(self.embedding(token.unsqueeze(1)))        # (batch, 1, embed_dim)
-        # attention uses only the top LSTM layer hidden state
-        top_hidden = hidden[-1]                                             # (batch, hidden)
-        context, attn_weights = self.attention(top_hidden, encoder_outputs)
-        context_expanded = context.unsqueeze(1)                            # (batch, 1, hidden)
-        lstm_input = torch.cat([embedded, context_expanded], dim=2)        # (batch, 1, embed+hidden)
-        output, (hidden, cell) = self.lstm(lstm_input, (hidden, cell))
-        # output: (batch, 1, hidden)
-        prediction = self.fc_out(
-            torch.cat([output.squeeze(1), context], dim=1)
-        )                                                                   # (batch, vocab_size)
-        return prediction, hidden, cell, attn_weights
+        while d_model % nhead != 0 and nhead > 1:
+            nhead -= 1
+
+        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
+        self.pos_enc   = PositionalEncoding(d_model, dropout)
+        decoder_layer  = nn.TransformerDecoderLayer(
+            d_model         = d_model,
+            nhead           = nhead,
+            dim_feedforward = dim_feedforward,
+            dropout         = dropout,
+            batch_first     = True,
+            norm_first      = True,
+        )
+        self.transformer_decoder = nn.TransformerDecoder(
+            decoder_layer, num_layers=num_layers,
+            norm=nn.LayerNorm(d_model),
+        )
+        self.fc_out  = nn.Linear(d_model, vocab_size)
+        self.d_model = d_model
+
+    def forward(self, tgt, memory, tgt_mask=None, tgt_key_padding_mask=None,
+                memory_key_padding_mask=None):
+        x      = self.embedding(tgt) * math.sqrt(self.d_model)
+        x      = self.pos_enc(x)
+        output = self.transformer_decoder(
+            x, memory,
+            tgt_mask                = tgt_mask,
+            tgt_key_padding_mask    = tgt_key_padding_mask,
+            memory_key_padding_mask = memory_key_padding_mask,
+        )
+        return self.fc_out(output)
 
 
 class Seq2Seq(nn.Module):
     """
-    Full encoder-decoder model.
+    Full Transformer encoder-decoder.
 
-    Training  : uses teacher forcing (feed the correct previous token).
-    Inference : generates autoregressively; supports temperature + beam search.
+    External API identical to original:
+      .forward(src, trg, teacher_forcing_ratio)   — training
+      .generate(src_tensor, max_len, temperature, beam_width)  — inference
     """
 
-    def __init__(self, encoder: Encoder, decoder: Decoder, sos_idx: int, eos_idx: int, pad_idx: int):
+    def __init__(self, encoder: Encoder, decoder: Decoder,
+                 sos_idx: int, eos_idx: int, pad_idx: int):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -111,90 +156,138 @@ class Seq2Seq(nn.Module):
         self.eos_idx = eos_idx
         self.pad_idx = pad_idx
 
+    @staticmethod
+    def _causal_mask(size: int, device) -> torch.Tensor:
+        return torch.triu(torch.ones(size, size, device=device), diagonal=1).bool()
+
+    @staticmethod
+    def _padding_mask(seq: torch.Tensor, pad_idx: int) -> torch.Tensor:
+        return seq == pad_idx
+
     def forward(self, src, trg, teacher_forcing_ratio: float = 0.5):
-        """
-        src : (batch, src_len)
-        trg : (batch, trg_len)   — includes <SOS> at position 0
-        Returns logits of shape (batch, trg_len-1, vocab_size)
-        """
-        batch_size  = src.size(0)
-        trg_len     = trg.size(1)
-        vocab_size  = self.decoder.vocab_size
+        src_pad_mask = self._padding_mask(src, self.pad_idx)
+        memory       = self.encoder(src, src_key_padding_mask=src_pad_mask)
 
-        enc_outputs, hidden, cell = self.encoder(src)
+        trg_in       = trg[:, :-1]
+        trg_len      = trg_in.size(1)
+        tgt_mask     = self._causal_mask(trg_len, src.device)
+        tgt_pad_mask = self._padding_mask(trg_in, self.pad_idx)
 
-        outputs = torch.zeros(batch_size, trg_len - 1, vocab_size, device=src.device)
-        token   = trg[:, 0]   # <SOS>
+        logits = self.decoder(
+            trg_in, memory,
+            tgt_mask                = tgt_mask,
+            tgt_key_padding_mask    = tgt_pad_mask,
+            memory_key_padding_mask = src_pad_mask,
+        )
 
-        for t in range(1, trg_len):
-            logits, hidden, cell, _ = self.decoder.forward_step(token, hidden, cell, enc_outputs)
-            outputs[:, t - 1] = logits
-            use_teacher = torch.rand(1).item() < teacher_forcing_ratio
-            token = trg[:, t] if use_teacher else logits.argmax(dim=1)
+        if teacher_forcing_ratio < 1.0:
+            sample_mask = (torch.rand(trg_in.shape, device=src.device) > teacher_forcing_ratio)
+            sample_mask = sample_mask & (trg_in != self.pad_idx)
 
-        return outputs
+            if sample_mask.any():
+                predicted_tokens   = logits.argmax(dim=-1)
+                mixed_trg_in       = torch.where(sample_mask, predicted_tokens, trg_in)
+                tgt_pad_mask_mixed = self._padding_mask(mixed_trg_in, self.pad_idx)
+                logits = self.decoder(
+                    mixed_trg_in, memory,
+                    tgt_mask                = tgt_mask,
+                    tgt_key_padding_mask    = tgt_pad_mask_mixed,
+                    memory_key_padding_mask = src_pad_mask,
+                )
+
+        return logits
 
     @torch.no_grad()
-    def generate(self, src_tensor, max_len: int = 40, temperature: float = 0.8, beam_width: int = 1):
-        """
-        Generate a response for a single input tensor (1, src_len).
-        Returns list of token indices (without SOS/EOS).
-        """
+    def generate(self, src_tensor, max_len: int = 40,
+                 temperature: float = 1.0, beam_width: int = 1):
         self.eval()
-        enc_outputs, hidden, cell = self.encoder(src_tensor)
+        src_pad_mask = self._padding_mask(src_tensor, self.pad_idx)
+        memory       = self.encoder(src_tensor, src_key_padding_mask=src_pad_mask)
 
         if beam_width <= 1:
-            return self._greedy_generate(enc_outputs, hidden, cell, max_len, temperature)
-        else:
-            return self._beam_generate(enc_outputs, hidden, cell, max_len, beam_width)
+            return self._greedy_generate(memory, src_pad_mask, max_len, temperature)
+        return self._beam_generate(memory, src_pad_mask, max_len, beam_width)
 
-    def _greedy_generate(self, enc_outputs, hidden, cell, max_len, temperature):
-        token  = torch.tensor([self.sos_idx], device=enc_outputs.device)
-        tokens = []
+    def _greedy_generate(self, memory, src_pad_mask, max_len, temperature):
+        device        = memory.device
+        tokens        = [self.sos_idx]
+        output_tokens = []
+
         for _ in range(max_len):
-            logits, hidden, cell, _ = self.decoder.forward_step(token, hidden, cell, enc_outputs)
-            if temperature == 0.0:
-                next_token = logits.argmax(dim=1)
+            tgt      = torch.tensor([tokens], dtype=torch.long, device=device)
+            tgt_mask = self._causal_mask(tgt.size(1), device)
+            logits   = self.decoder(tgt, memory, tgt_mask=tgt_mask,
+                                    memory_key_padding_mask=src_pad_mask)
+            next_logits = logits[:, -1, :]
+
+            if temperature <= 0.0:
+                next_token = next_logits.argmax(dim=-1).item()
             else:
-                probs      = torch.softmax(logits / temperature, dim=1)
-                next_token = torch.multinomial(probs, 1).squeeze(1)
-            idx = next_token.item()
-            if idx == self.eos_idx:
+                next_token = self._sample_token(next_logits, temperature, top_p=0.92)
+
+            if next_token == self.eos_idx:
                 break
-            tokens.append(idx)
-            token = next_token
-        return tokens
+            tokens.append(next_token)
+            output_tokens.append(next_token)
 
-    def _beam_generate(self, enc_outputs, hidden, cell, max_len, beam_width):
-        """Simple beam search."""
-        # each beam: (score, token_list, hidden, cell)
-        beams = [(0.0, [], hidden, cell)]
+        return output_tokens
+
+    @staticmethod
+    def _sample_token(logits: torch.Tensor, temperature: float,
+                      top_p: float = 0.92) -> int:
+        logits = logits / max(temperature, 1e-8)
+        probs  = torch.softmax(logits, dim=-1).squeeze(0)
+
+        sorted_probs, sorted_idx = torch.sort(probs, descending=True)
+        cum_probs = torch.cumsum(sorted_probs, dim=0)
+        cutoff    = (cum_probs - sorted_probs) < top_p
+        sorted_probs = sorted_probs * cutoff.float()
+
+        if sorted_probs.sum() == 0:
+            sorted_probs = torch.ones_like(sorted_probs)
+
+        sorted_probs = sorted_probs / sorted_probs.sum()
+        sampled = torch.multinomial(sorted_probs, 1).item()
+        return sorted_idx[sampled].item()
+
+    def _beam_generate(self, memory, src_pad_mask, max_len, beam_width,
+                       length_penalty: float = 0.7):
+        device    = memory.device
+        beams     = [(0.0, [self.sos_idx])]
         completed = []
-
-        token = torch.tensor([self.sos_idx], device=enc_outputs.device)
 
         for _ in range(max_len):
             candidates = []
-            for score, tokens, h, c in beams:
-                if tokens and tokens[-1] == self.eos_idx:
-                    completed.append((score, tokens[:-1]))
+            for score, tokens in beams:
+                if tokens[-1] == self.eos_idx:
+                    seq        = tokens[1:-1]
+                    norm_score = score / max(len(seq), 1) ** length_penalty
+                    completed.append((norm_score, seq))
                     continue
-                last_token = torch.tensor(
-                    [tokens[-1] if tokens else self.sos_idx],
-                    device=enc_outputs.device
-                )
-                logits, nh, nc, _ = self.decoder.forward_step(last_token, h, c, enc_outputs)
-                log_probs = torch.log_softmax(logits, dim=1).squeeze(0)
+
+                tgt      = torch.tensor([tokens], dtype=torch.long, device=device)
+                tgt_mask = self._causal_mask(tgt.size(1), device)
+                logits   = self.decoder(tgt, memory, tgt_mask=tgt_mask,
+                                         memory_key_padding_mask=src_pad_mask)
+                log_probs = torch.log_softmax(logits[:, -1, :], dim=-1).squeeze(0)
                 top_probs, top_idxs = log_probs.topk(beam_width)
+
                 for prob, idx in zip(top_probs.tolist(), top_idxs.tolist()):
-                    candidates.append((score + prob, tokens + [idx], nh, nc))
+                    candidates.append((score + prob, tokens + [idx]))
 
             if not candidates:
                 break
             candidates.sort(key=lambda x: x[0], reverse=True)
             beams = candidates[:beam_width]
 
+        for score, tokens in beams:
+            seq = tokens[1:]
+            if seq and seq[-1] == self.eos_idx:
+                seq = seq[:-1]
+            norm_score = score / max(len(seq), 1) ** length_penalty
+            completed.append((norm_score, seq))
+
         if completed:
             completed.sort(key=lambda x: x[0], reverse=True)
             return completed[0][1]
-        return beams[0][1] if beams else []
+        return []

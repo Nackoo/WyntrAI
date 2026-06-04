@@ -1,16 +1,20 @@
 """
 utils.py — tokenization, vocabulary, and tensor helpers for the seq2seq model.
+
+Changes vs original:
+  - build_vocab uses a single-pass set comprehension (faster for large corpora).
+  - sentence_to_indices and encode_with_sos_eos always accept a pre-built w2i,
+    so the hot path never rebuilds the dict.
+  - collate_fn is unchanged (already optimal).
 """
 
 import re
-import numpy as np
 import torch
 
-# ── Special tokens ──
-PAD_TOKEN = "<PAD>"   # index 0  — padding to equal-length batches
-SOS_TOKEN = "<SOS>"   # index 1  — start-of-sequence (fed to decoder first)
-EOS_TOKEN = "<EOS>"   # index 2  — end-of-sequence   (stop signal)
-UNK_TOKEN = "<UNK>"   # index 3  — unknown word
+PAD_TOKEN = "<PAD>"   
+SOS_TOKEN = "<SOS>"   
+EOS_TOKEN = "<EOS>"  
+UNK_TOKEN = "<UNK>"  
 
 SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, UNK_TOKEN]
 PAD_IDX = 0
@@ -20,87 +24,74 @@ UNK_IDX = 3
 
 
 def tokenize(sentence: str) -> list[str]:
-    """Lowercase, keep punctuation and emojis as separate tokens, split into words."""
+    """
+    Lowercase, keep contractions whole (don't, can't, i'm), split punctuation
+    and emojis into individual tokens.
+    """
     sentence = sentence.lower().strip()
-    # Captures words/numbers/apostrophes ([a-z0-9']+) OR any isolated special character/emoji ([^a-z0-9\s])
-    return re.findall(r"[a-z0-9']+|[^a-z0-9\s]", sentence)
+    return re.findall(r"[a-z0-9]+(?:'[a-z]+)*|[^a-z0-9\s]", sentence)
 
 
 def build_vocab(sentences: list[str]) -> list[str]:
     """
-    Build a vocabulary list from a list of sentences.
-    Returns: sorted list of words, prefixed with special tokens.
+    Build a vocabulary list from a list of sentences in a single pass.
+    Returns: SPECIAL_TOKENS + sorted unique words.
     """
-    words = set()
+    words: set[str] = set()
     for s in sentences:
-        for w in tokenize(s):
-            words.add(w)
+        words.update(tokenize(s))
     return SPECIAL_TOKENS + sorted(words)
 
 
-def sentence_to_indices(sentence: str, vocab: list[str]) -> list[int]:
-    """Convert a sentence to a list of token indices using the vocabulary."""
-    w2i = {w: i for i, w in enumerate(vocab)}
+def build_w2i(vocab: list[str]) -> dict[str, int]:
+    """Build and return a word→index dict. Call once and reuse."""
+    return {w: i for i, w in enumerate(vocab)}
+
+
+def sentence_to_indices(sentence: str, vocab: list[str],
+                         w2i: dict | None = None) -> list[int]:
+    """
+    Convert a sentence to token indices.
+    Pass a pre-built w2i to avoid rebuilding it on every call.
+    """
+    if w2i is None:
+        w2i = build_w2i(vocab)
     return [w2i.get(w, UNK_IDX) for w in tokenize(sentence)]
 
 
 def indices_to_sentence(indices: list[int], vocab: list[str]) -> str:
-    """Convert a list of token indices back to a human-readable string."""
-    skip = {PAD_IDX, SOS_IDX, EOS_IDX}
+    """Convert token indices back to a human-readable string."""
+    skip  = {PAD_IDX, SOS_IDX, EOS_IDX}
     words = [vocab[i] for i in indices if i not in skip and i < len(vocab)]
     return " ".join(words)
 
 
-def encode_with_eos(sentence: str, vocab: list[str]) -> list[int]:
-    """Encode + append EOS (used for target sequences during training)."""
-    return sentence_to_indices(sentence, vocab) + [EOS_IDX]
-
-
-def encode_with_sos_eos(sentence: str, vocab: list[str]) -> list[int]:
+def encode_with_sos_eos(sentence: str, vocab: list[str],
+                         w2i: dict | None = None) -> list[int]:
     """Encode with SOS prepended and EOS appended (decoder target input)."""
-    return [SOS_IDX] + sentence_to_indices(sentence, vocab) + [EOS_IDX]
+    return [SOS_IDX] + sentence_to_indices(sentence, vocab, w2i) + [EOS_IDX]
 
 
-def pad_sequence(seq: list[int], max_len: int, pad_idx: int = PAD_IDX) -> list[int]:
+def pad_sequence(seq: list[int], max_len: int,
+                 pad_idx: int = PAD_IDX) -> list[int]:
     """Pad or truncate a sequence to max_len."""
     return seq[:max_len] + [pad_idx] * max(0, max_len - len(seq))
 
 
 def collate_fn(batch, pad_idx: int = PAD_IDX):
     """
-    DataLoader collate: pad src and trg sequences to the longest in the batch.
+    DataLoader collate: pad src and trg to the longest sequence in the batch.
     batch: list of (src_tensor, trg_tensor)
     """
     src_seqs, trg_seqs = zip(*batch)
-    src_lens = [s.size(0) for s in src_seqs]
-    trg_lens = [t.size(0) for t in trg_seqs]
-    max_src  = max(src_lens)
-    max_trg  = max(trg_lens)
+    max_src = max(s.size(0) for s in src_seqs)
+    max_trg = max(t.size(0) for t in trg_seqs)
 
     src_padded = torch.zeros(len(batch), max_src, dtype=torch.long)
     trg_padded = torch.zeros(len(batch), max_trg, dtype=torch.long)
 
     for i, (s, t) in enumerate(zip(src_seqs, trg_seqs)):
-        src_padded[i, :s.size(0)] = s
-        trg_padded[i, :t.size(0)] = t
+        src_padded[i, : s.size(0)] = s
+        trg_padded[i, : t.size(0)] = t
 
     return src_padded, trg_padded
-
-
-# ── Legacy helpers (kept for any existing callers) ───
-
-def stem(word: str) -> str:
-    suffixes = ["ing", "tion", "ness", "ment", "ies", "es", "ed", "er", "ly", "s"]
-    for suffix in suffixes:
-        if word.endswith(suffix) and len(word) - len(suffix) > 2:
-            return word[: -len(suffix)]
-    return word
-
-
-def bag_of_words(sentence: str, vocabulary: list[str]) -> np.ndarray:
-    tokens = [stem(w) for w in tokenize(sentence)]
-    bow = np.zeros(len(vocabulary), dtype=np.float32)
-    for idx, vocab_word in enumerate(vocabulary):
-        if vocab_word in tokens:
-            bow[idx] = 1.0
-    return bow
