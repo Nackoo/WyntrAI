@@ -402,9 +402,8 @@
         cleanResponse = cleanResponse.replace(/\b(.+?)(?:\s+\1\b)+/gi, '$1');
         cleanResponse = cleanResponse.replace(/\s+([!?.,])/g, '$1') 
                                      .replace(/([!?.,])\s*/g, '$1 ') 
-                                     .trim();                        
-
-        cleanResponse = cleanResponse.replace(/(.+?)\1+/gi, '$1');
+                                     .trim();                       
+        cleanResponse = cleanResponse.replace(/\b(\w+?)\1+(?=\b)/gi, '$1');
 
         appendMessageBubble(cleanResponse, 'bot');
 
