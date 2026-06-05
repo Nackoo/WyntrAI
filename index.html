@@ -89,7 +89,7 @@
         display: flex;
         flex-direction: column;
         border-right: 1px solid var(--border);
-        background: #020202;
+        background: none;
     }
 
     .chat-history {
@@ -238,6 +238,60 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
+    /* Thinking bubble */
+    .thinking-bubble {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 18px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        border-bottom-left-radius: 2px;
+        animation: fadeIn 0.2s ease;
+    }
+
+    .thinking-dots {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .thinking-dots span {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--text);
+        display: block;
+        animation: dotPulse 1.2s ease-in-out infinite;
+    }
+
+    .thinking-dots span:nth-child(1) { animation-delay: 0s; }
+    .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes dotPulse {
+        0%, 60%, 100% { transform: scale(1); opacity: 0.4; }
+        30% { transform: scale(1.5); opacity: 1; }
+    }
+
+    .thinking-label {
+        font-family: var(--font-text);
+        font-size: 13px;
+        font-weight: 500;
+        background: linear-gradient(90deg, var(--muted) 0%, var(--text) 40%, white 60%, var(--muted) 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shimmer 2s linear infinite;
+    }
+
+    @keyframes shimmer {
+        0% { background-position: 200% center; }
+        100% { background-position: -200% center; }
+    }
+
     @media (max-width: 768px) {
         body {
             overflow: auto;
@@ -266,6 +320,9 @@
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 5px 0 25px rgba(0,0,0,0.5);
         }
+        .chat-input-area {
+            padding: 16px 14px 24px 14px;
+        }
         .chat-sidebar.open {
             transform: translateX(0);
         }
@@ -285,9 +342,22 @@
         .chat-sidebar .panel {
             padding-top: 50px;
         }
+        .chat-history {
+            padding: 20px 14px;
+        }
+    }
+    .bg-space {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      z-index: -1;
+      pointer-events: none;
     }
   </style>
 </head>
+<iframe class="bg-space" src="https://wyntx.netlify.app/space.html"></iframe>
 <body>
 
   <header class="layout-header">
@@ -377,6 +447,8 @@
 
       appendMessageBubble(txt, 'user');
 
+      const thinkingRow = showThinking();
+
       const tempVal   = parseFloat(document.getElementById('paramTemp').value);
       const beamVal   = parseInt(document.getElementById('paramBeam').value);
       const maxLenVal = parseInt(document.getElementById('paramMaxLen').value);
@@ -402,15 +474,31 @@
         cleanResponse = cleanResponse.replace(/\b(.+?)(?:\s+\1\b)+/gi, '$1');
         cleanResponse = cleanResponse.replace(/\s+([!?.,])/g, '$1') 
                                      .replace(/([!?.,])\s*/g, '$1 ') 
-                                     .trim();                       
-        cleanResponse = cleanResponse.replace(/\b(\w+?)\1+(?=\b)/gi, '$1');
+                                     .trim();                        
+        cleanResponse = cleanResponse.replace(/(.)\1{2,}/gi, '$1$1');
 
+        removeThinking(thinkingRow);
         appendMessageBubble(cleanResponse, 'bot');
 
       } catch (err) {
+        removeThinking(thinkingRow);
         appendMessageBubble("System communication interface error.", 'bot');
         console.error(err);
       }
+    }
+
+    function showThinking() {
+      const history = document.getElementById('chatHistory');
+      const row = document.createElement('div');
+      row.className = 'msg-row bot';
+      row.innerHTML = '<div class="thinking-bubble"><div class="thinking-dots"><span></span><span></span><span></span></div><span class="thinking-label">thinking</span></div>';
+      history.appendChild(row);
+      history.scrollTop = history.scrollHeight;
+      return row;
+    }
+
+    function removeThinking(row) {
+      if (row && row.parentNode) row.parentNode.removeChild(row);
     }
 
     function appendMessageBubble(text, sender) {
