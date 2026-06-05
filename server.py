@@ -16,7 +16,7 @@ def add_cors_headers(response):
     return response
 
 def load():
-    ck = torch.load("model.pth", weights_only=False)
+    ck = torch.load("model.pth", weights_only=False, map_location="cpu")
 
     vocab_size      = ck["vocab_size"]
     embed_dim       = ck["embed_dim"]
@@ -67,9 +67,10 @@ def predict():
 
     sentence    = request.json["sentence"]
     vocab       = ck["vocab"]
-    temperature = float(request.json.get("temperature", 0.8))
-    beam_width  = int(request.json.get("beam_width",    1))
-    max_len     = int(request.json.get("max_len", 40))
+    temperature = float(request.json.get("temperature", 0.7))
+    # Default to beam_width=3 to activate length penalty processing loops
+    beam_width  = int(request.json.get("beam_width",    3))
+    max_len     = int(request.json.get("max_len", 50))
 
     src_indices = sentence_to_indices(sentence, ck["vocab"], ck.get("w2i"))
 
@@ -89,7 +90,7 @@ def predict():
     response = indices_to_sentence(output_indices, vocab)
 
     if not response.strip():
-        response = "i couldn't generate anything."
+        response = "I couldn't generate anything."
 
     return jsonify({
         "tag":        "generated",
