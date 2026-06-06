@@ -68,7 +68,6 @@ def predict():
     sentence    = request.json["sentence"]
     vocab       = ck["vocab"]
     temperature = float(request.json.get("temperature", 0.7))
-    # Default to beam_width=3 to activate length penalty processing loops
     beam_width  = int(request.json.get("beam_width",    3))
     max_len     = int(request.json.get("max_len", 50))
 
