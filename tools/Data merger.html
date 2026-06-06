@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Merger</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000000;
+            color: #e8e8ff;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            border: 1px solid #2f3336;
+        }
+        h2 {
+            color: #e8e8ff;
+            border-bottom: 2px solid #2f3336;
+            padding-bottom: 10px;
+        }
+        .file-input-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .input-group {
+            background: #101010;
+            padding: 15px;
+            border: 1px solid #2f3336;
+            border-radius: 6px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #4a5568;
+        }
+        button {
+            background-color: #7c6bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+            line-height: 1.6;
+        }
+        .success {
+            background-color: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        .error {
+            background-color: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Dataset Merger & Emoji Encoder</h2>
+    <p>Upload your two dataset JSON files. The tool will merge unique entries.</p>
+
+    <div class="file-input-container">
+        <div class="input-group">
+            <label for="file1">Primary Dataset (Base)</label>
+            <input type="file" id="file1" accept=".json">
+        </div>
+        <div class="input-group">
+            <label for="file2">Secondary Dataset (To Append)</label>
+            <input type="file" id="file2" accept=".json">
+        </div>
+    </div>
+
+    <button id="mergeBtn">Merge and Clean Datasets</button>
+
+    <div id="status"></div>
+
+    <script>
+        function readFileAsJson(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        resolve(JSON.parse(e.target.result));
+                    } catch (err) {
+                        reject(new Error(`Failed to parse JSON for ${file.name}.`));
+                    }
+                };
+                reader.onerror = () => reject(new Error(`Error reading file ${file.name}`));
+                reader.readAsText(file);
+            });
+        }
+
+        document.getElementById('mergeBtn').addEventListener('click', async () => {
+            const file1Input = document.getElementById('file1').files[0];
+            const file2Input = document.getElementById('file2').files[0];
+            const statusDiv = document.getElementById('status');
+
+            statusDiv.style.display = 'none';
+
+            if (!file1Input || !file2Input) {
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'error';
+                statusDiv.textContent = 'Please select both JSON files.';
+                return;
+            }
+
+            try {
+                const data1 = await readFileAsJson(file1Input);
+                const data2 = await readFileAsJson(file2Input);
+
+                if (!data1.conversations || !data2.conversations) {
+                    throw new Error("Both JSON files must contain a 'conversations' array.");
+                }
+
+                const baseInputs = new Set(data1.conversations.map(c => String(c.input).trim()));
+                const mergedConversations = [...data1.conversations];
+                let addedCount = 0;
+
+                data2.conversations.forEach(item => {
+                    const normalizedInput = String(item.input).trim();
+                    if (!baseInputs.has(normalizedInput)) {
+                        mergedConversations.push(item);
+                        baseInputs.add(normalizedInput); 
+                        addedCount++;
+                    }
+                });
+
+                let totalPairs = 0;
+                mergedConversations.forEach(c => {
+                    if (Array.isArray(c.replies)) {
+                        totalPairs += c.replies.length;
+                    } else if (c.replies) {
+                        totalPairs += 1;
+                    }
+                });
+
+                const finalDataset = { conversations: mergedConversations };
+                const standardJsonString = JSON.stringify(finalDataset, null, 2);
+                const literalEscapedJsonString = standardJsonString.replace(/[^\x00-\x7F]/g, function(ch) {
+                    return '\\u' + ('0000' + ch.charCodeAt(0).toString(16)).slice(-4);
+                });
+
+                const blob = new Blob([literalEscapedJsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'data.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'success';
+                statusDiv.innerHTML = `<strong>Success!</strong> Combined dataset downloaded.<br>
+                                       • Base entries: ${data1.conversations.length}<br>
+                                       • New entries added: ${addedCount}<br>
+                                       • Total entries: ${mergedConversations.length}<br>
+                                       • <strong>Total Pairs (Replies Count): ${totalPairs}</strong>`;
+
+            } catch (error) {
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'error';
+                statusDiv.textContent = error.message;
+            }
+        });
+    </script>
+</body>
+</html>
