@@ -89,7 +89,6 @@ class Seq2Seq(nn.Module):
         return seq == pad_idx
 
     def forward(self, src, trg):
-        # 100% Teacher Forcing - No random token swapping
         src_pad_mask = self._padding_mask(src, self.pad_idx)
         memory = self.encoder(src, src_key_padding_mask=src_pad_mask)
 
