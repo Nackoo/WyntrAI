@@ -1,0 +1,179 @@
+WyntrAI TRAINING DATA FORMATTER GUIDELINES
+
+CONTROLS:
+    1. SELECT AND MERGE
+        1. --shift + [[num]-user_[name_x]] + [[num]-user_[name_x]] + [...]
+        2. --enter
+        merges them. (VISUAL_2)
+    2. SELECT AND REMOVE
+        1. --shift + [[num]-user_[name_x/y]] + [...]
+        2. --backspace
+        removes them. (VISUAL_3)
+    3. SELECT AND PAIR
+        1. --shift + [[num]-user_[name_x]] + [[num]-user_[name_y]]
+        2. --enter
+        pairs them. (VISUAL_4)
+
+    4. --ctrl + --z to undo
+    5. --ctrl + --y to redo
+    6. --ctrl + click a message to edit
+    7. --ctrl + click a pair to mark export root
+
+    8. "import JSON" to merge formatted dataset with yours
+    9. "Export JSON" to download formatted datasets
+    10. "auto pair" to automatically pair
+
+-------------------------------------
+
+[VISUAL_1] raw messages: DC_ITEX.txt
+
+[0] nackoo: i've already fixed the bug in line 36
+[1] nackoo: and push changes to repository
+[2] nackoo: anw, it's my birthday!
+[3] nackoo: qwijoqwi2pw
+[4] itex: good work
+[5] itex: but next time, you have to ask for my permission first
+[6] itex: ohh happy birthday
+[7] nackoo: yayy
+[8] itex: iqwldkjw9lw
+[9] nackoo: okay okay, i'll ask for your permission next time
+[10] itex: ok
+
+-------------------------------------
+
+[VISUAL_2]
+
+1. [FROM VISUAL_1]: --shift + 0-nackoo + 1-nackoo
+2. --enter 
+
+[VISUAL_2_1] 
+    [0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+    [1] nackoo: anw, it's my birthday!
+    [2] nackoo: qwijoqwi2pw
+    [3] itex: good work
+    [4] itex: but next time, you have to ask for my permission first
+    [5] itex: ohh happy birthday
+    [6] nackoo: yayy
+    [7] itex: iqwldkjw9lw
+    [8] nackoo: okay okay, i'll ask for your permission next time
+    [9] itex: ok
+
+1. [FROM VISUAL_2_1]: --shift + 3-itex + 4-itex
+2. --enter
+
+[VISUAL_2_2]
+    [0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+    [1] nackoo: anw, it's my birthday!
+    [2] nackoo: qwijoqwi2pw
+    [3] itex: good work. but next time, you have to ask for my permission first.
+    [4] itex: ohh happy birthday
+    [5] nackoo: yayy
+    [6] itex: iqwldkjw9lw
+    [7] nackoo: okay okay, i'll ask for your permission next time
+    [8] itex: ok
+
+-------------------------------------
+
+[VISUAL_3]
+
+1. [FROM VISUAL_2_2]: --shift + 2-nackoo + 6-itex
+2. --backspace
+
+[0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+[1] nackoo: anw, it's my birthday!
+[2] itex: good work. but next time, you have to ask for my permission first.
+[3] itex: ohh happy birthday
+[4] nackoo: yayy
+[5] nackoo: okay okay, i'll ask for your permission next time
+[6] itex: ok
+
+------------------------------------
+
+[VISUAL_4]
+
+1. [FROM VISUAL_3]: --shift + 0-nackoo + 2-itex
+2. --enter
+
+[VISUAL_4_1]
+    PAIR_1:
+        [0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+        [2] itex: good work. but next time, you have to ask for my permission first.
+    UNPAIRED:
+        [1] nackoo: anw, it's my birthday!
+        [3] itex: ohh happy birthday
+        [4] nackoo: yayy
+        [5] nackoo: okay okay, i'll ask for your permission next time
+        [6] itex: ok
+
+3. [FROM VISUAL_4_1]: --shift + 2-itex + 5-nackoo
+4. --enter
+
+[VISUAL_4_2]
+    PAIR_1:
+        [0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+        [2] itex: good work. but next time, you have to ask for my permission first.
+    PAIR_2:
+        [2] itex: good work. but next time, you have to ask for my permission first.
+        [5] nackoo: okay okay, i'll ask for your permission next time
+    UNPAIRED:
+        [1] nackoo: anw, it's my birthday!
+        [3] itex: ohh happy birthday
+        [4] nackoo: yayy
+        [6] itex: ok 
+
+5. [FROM VISUAL_4_2]: --shift + 5-nackoo + 6-itex
+6. --enter
+
+[VISUAL_4_3]
+    PAIR_1:
+        [0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+        [2] itex: good work. but next time, you have to ask for my permission first.
+    PAIR_2:
+        [2] itex: good work. but next time, you have to ask for my permission first.
+        [5] nackoo: okay okay, i'll ask for your permission next time
+    PAIR_3:
+        [5] nackoo: okay okay, i'll ask for your permission next time
+        [6] itex: ok 
+    UNPAIRED:
+        [1] nackoo: anw, it's my birthday!
+        [3] itex: ohh happy birthday
+        [4] nackoo: yayy
+        
+7. [FROM VISUAL_4_3]: --shift + 1-nackoo + 3-itex
+8. --enter
+
+[VISUAL_4_4]
+    PAIR_1:
+        [0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+        [2] itex: good work. but next time, you have to ask for my permission first.
+    PAIR_2:
+        [2] itex: good work. but next time, you have to ask for my permission first.
+        [5] nackoo: okay okay, i'll ask for your permission next time
+    PAIR_3:
+        [5] nackoo: okay okay, i'll ask for your permission next time
+        [6] itex: ok 
+    PAIR_4:
+        [1] nackoo: anw, it's my birthday!
+        [3] itex: ohh happy birthday        
+    UNPAIRED:
+        [4] nackoo: yayy
+
+9. [FROM VISUAL_4_4]: --shift + 3-itex + 4-nackoo
+10. --enter
+
+[VISUAL_4_5]
+    PAIR_1:
+        [0] nackoo: i've already fixed the bug in line 36. and push changes to repository
+        [2] itex: good work. but next time, you have to ask for my permission first.
+    PAIR_2:
+        [2] itex: good work. but next time, you have to ask for my permission first.
+        [5] nackoo: okay okay, i'll ask for your permission next time
+    PAIR_3:
+        [5] nackoo: okay okay, i'll ask for your permission next time
+        [6] itex: ok 
+    PAIR_4:
+        [1] nackoo: anw, it's my birthday!
+        [3] itex: ohh happy birthday        
+    PAIR_5:
+        [3] itex: ohh happy birthday
+        [4] nackoo: yayy
