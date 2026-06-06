@@ -10,7 +10,6 @@ from utils import (
     collate_fn, PAD_IDX, SOS_IDX, EOS_IDX,
 )
 
-# ── 1. Load data.json and extract multi-reply conversational pairs ───
 with open("data.json") as f:
     data = json.load(f)
 
@@ -36,13 +35,11 @@ if not pairs:
 
 print(f"Training pairs : {len(pairs)}")
 
-# ── 2. Build shared vocabulary ──
 all_sentences = [p for p, _ in pairs] + [r for _, r in pairs]
 vocab = build_vocab(all_sentences)
 vocab_size = len(vocab)
 print(f"Vocabulary size: {vocab_size}")
 
-# ── 3. Dataset ──
 class Seq2SeqDataset(Dataset):
     def __init__(self, pairs, vocab):
         self.samples = []
@@ -69,16 +66,16 @@ loader = DataLoader(
     collate_fn=collate_fn,
 )
 
-# ── 4. Future-Proofed Hyperparameters ──
-EMBED_DIM       = 256  # Up from 64 (Allows vocabulary to scale safely)
-HIDDEN_SIZE     = 512  # Feedforward network size inside the Transformer
-NUM_LAYERS      = 3    # Up from 2 for better reasoning
-DROPOUT         = 0.1  # Down from 0.3 (Prevents the model from underfitting)
-EPOCHS          = 150  # Reduced significantly (No need to over-bake it)
+
+EMBED_DIM       = 256 
+HIDDEN_SIZE     = 512 
+NUM_LAYERS      = 3   
+DROPOUT         = 0.1  
+EPOCHS          = 150  
 LR              = 5e-4
 CLIP            = 1.0
 
-# ── 5. Initialize model ──
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Training on: {device}")
 
@@ -98,7 +95,6 @@ print(f"Model parameters: {total_params:,}")
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 
-# ── 6. Training loop ──
 print("\nTraining…")
 
 for epoch in range(1, EPOCHS + 1):
@@ -110,7 +106,6 @@ for epoch in range(1, EPOCHS + 1):
         src, trg = src.to(device), trg.to(device)
         optimizer.zero_grad()
 
-        # Pure Teacher Forcing
         output = model(src, trg)
         targets = trg[:, 1:]
 
@@ -135,7 +130,7 @@ for epoch in range(1, EPOCHS + 1):
 
 print("Done!\n")
 
-# ── 7. Save checkpoint ───
+
 torch.save(
     {
         "encoder_state":   encoder.state_dict(),
