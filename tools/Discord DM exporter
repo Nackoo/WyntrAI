@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Discord DM Exporter</title>
+  <style>
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #000000;
+    --surface: #080808;
+    --surface2: #101010;
+    --border: #2f3336;
+    --accent: #7c6bff;
+    --accent3: #6bffd8;
+    --text: #e8e8ff;
+    --muted: #6b6b8a;
+    --pos: #6bffd8;
+    --neg: #ff6b6b;
+    --font-text:
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+    --font-mono:  monospace;
+    --font-display: 'Syne', sans-serif;
+}
+
+::-webkit-scrollbar { 
+    width: 7px;
+}
+::-webkit-scrollbar-thumb {
+    background-color: var(--border); 
+    border-radius: 10px;
+}
+body::-webkit-scrollbar {
+    width: 0;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+/* App shell below header */
+.app-shell {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Main scrollable content */
+.main-content {
+    flex: 1;
+    overflow-y: auto;
+    min-width: 0;
+}
+
+/* Step 3 Sidebar */
+.sidebar {
+    width: 400px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    height: calc(100vh - 48px);
+    overflow-y: auto;
+    display: none; /* shown when stepExport is revealed */
+}
+
+.sidebar.visible {
+    display: block;
+}
+
+.sidebar .panel {
+    border-bottom: none;
+    height: 100%;
+}
+
+/* Layout Header */
+.layout-header {
+    height: 48px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    background: var(--surface);
+    z-index: 10;
+}
+
+.logo {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.logo span {
+    color: #fff;
+}
+
+/* Status Indicator */
+.server-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    font-family: var(--font-text)
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: all 0.3s ease;
+}
+
+.server-status.online .status-dot {
+    background: var(--pos);
+    box-shadow: 0 0 8px var(--pos);
+}
+
+.status-text {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+}
+
+.server-status.online .status-text {
+    color: var(--text);
+}
+
+/* Panels & Cards */
+.panel {
+    background: #000;
+    border-bottom: 1px solid var(--border);
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-family: var(--font-text)
+}
+
+.panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Interactive Actions */
+button.action-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px;
+    border-radius: 8px;
+    font-family: var(--font-text);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+button.action-btn:hover {
+    background: var(--border);
+    border-color: var(--muted);
+    color: #fff;
+}
+
+button.action-btn.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+    justify-content: center;
+    font-size: 12px;
+}
+
+button.action-btn.primary:hover {
+    background: #6b5ae6;
+}
+
+/* Summary Grid Analytics */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-val {
+    font-size: 18px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: #fff;
+}
+
+.stat-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Pipeline Event Log Display */
+#visLogs {
+    font-size: 11px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.log-entry {
+    display: flex;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    padding: 5px 0;
+    font-family: var(--font-mono)
+}
+
+.log-time {
+    color: #ff6b9d; /* Embedded replacement for var(--accent2) */
+    font-weight: 600;
+    width: 60px;
+    flex-shrink: 0;
+}
+
+.log-text {
+    color: var(--text);
+}
+
+/* Custom layout workflow overrides */
+.container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.channel-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-text);
+}
+
+.channel-card:hover {
+    border-color: var(--muted);
+    background: var(--border);
+}
+
+.channel-card.selected {
+    border-color: var(--accent);
+    background: #7c6bff15;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.channel-info {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.channel-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.channel-type {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.token-row {
+    display: flex;
+    gap: 12px;
+}
+
+.token-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    outline: none;
+}
+
+.token-input:focus {
+    border-color: var(--accent);
+}
+
+.row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.spacer {
+    flex: 1;
+}
+
+.sel-count {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.downloads-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.download-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 8px;
+}
+
+.download-item span {
+    font-family: var(--font-text);
+    color: var(--text);
+}
+
+.progress-track {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+    width: 100%;
+    margin: 12px 0;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.tip-box {
+    line-height: 2;
+    margin: 10px 0;
+}
+
+.tip-box code {
+    font-family: var(--font-mono);
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent3);
+}
+  </style>
+</head>
+<body>
+
+  <header class="layout-header">
+    <div class="logo">Discord <span>DM exporter</span></div>
+    <div class="server-status" id="serverStatus">
+      <div class="status-dot"></div>
+      <div class="status-text" id="statusText">Disconnected</div>
+    </div>
+  </header>
+
+  <div class="app-shell">
+  <div class="main-content">
+  <div class="container">
+    
+    <div class="panel">
+      <div class="panel-title">Step 1 — Access Token</div>
+      <div class="tip-box">
+        <strong>How to get your token:</strong> Open Discord in your browser &rarr; press <code>F12</code> &rarr; Network tab &rarr; Click any chat &rarr; Look for a request payload heading to <code>discord.com/api</code> &rarr; Find the <code>Authorization</code> code under Request Headers. <strong>Never give this out to anyone.</strong>
+      </div>
+      <div class="token-row">
+        <input class="token-input" type="password" id="tokenInput" placeholder="Paste Discord authorization token here..." autocomplete="off" />
+        <button class="action-btn primary" id="fetchBtn" style="min-width: 120px;">Connect</button>
+      </div>
+      <div id="userInfo" style="display: none; font-size: 13px; color: var(--pos);"></div>
+    </div>
+
+    <div class="panel" id="stepChannels" style="display:none;">
+      <div class="panel-title">Step 2 — Select Conversations to Extract</div>
+      <div class="row">
+        <span class="sel-count" id="selCount">0 channels selected</span>
+        <div class="spacer"></div>
+        <button class="action-btn" id="selAllBtn">Select All</button>
+        <button class="action-btn" id="clearSelBtn">Clear Selection</button>
+      </div>
+      <div class="row" style="margin-bottom:12px;">
+        <input
+          type="text"
+          id="userSearch"
+          class="token-input"
+          placeholder="Search users or group DMs..."
+        />
+      </div>
+      <div class="channels-grid" id="channelsGrid">
+        <div class="stat-lbl" style="padding: 20px; text-align: center;">Populating DMs...</div>
+      </div>
+    </div>
+
+  </div><!-- end container -->
+  </div><!-- end main-content -->
+
+  <aside class="sidebar" id="sidebarExport">
+    <div class="panel" id="stepExport" style="display:none;">
+      <div class="panel-title">Step 3 — Run Pipeline</div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; margin:16px 0;">
+        <button class="action-btn primary" id="exportBtn">Execute Batch Extraction</button>
+        <button class="action-btn" id="stopBtn" style="background: var(--neg); color: #000; border: none; display: none;">Halt Export</button>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+        <span class="stat-lbl">Max messages per DM:</span>
+        <input type="number" id="maxMsg" value="1000" min="1" max="100000" style="background:var(--surface2); border:1px solid var(--border); padding:6px 10px; color:#fff; border-radius:6px; font-family:var(--font-mono); width:90px;">
+      </div>
+
+      <div class="progress-track"><div class="progress-bar" id="progressFill"></div></div>
+
+      <div class="stats-grid" style="margin-bottom: 16px;">
+        <div class="stat-box"><div class="stat-val" id="statMsgs">0</div><div class="stat-lbl">Processed</div></div>
+        <div class="stat-box"><div class="stat-val" id="statChannels">0 / 0</div><div class="stat-lbl">Channels</div></div>
+      </div>
+
+      <div class="panel-title" style="margin: 16px 0 10px;">Generated Files</div>
+      <div class="downloads-list" id="downloadsList">
+        <div class="stat-lbl" style="text-align: center; padding: 12px; border: 1px dashed var(--border); border-radius: 8px;">No files yet.</div>
+      </div>
+
+      <div class="panel-title" style="margin: 16px 0 10px;">Pipeline Logs</div>
+      <div id="visLogs" style="background: var(--surface2); padding: 12px; border-radius: 8px; border: 1px solid var(--border);"></div>
+    </div>
+  </aside>
+
+  </div><!-- end app-shell -->
+
+  <script>
+const $ = id => document.getElementById(id);
+  let token = '', channels = [], selected = new Set(), stopped = false;
+
+  const log = (msg, isError = false) => {
+    const el = $('visLogs');
+    const time = new Date().toLocaleTimeString();
+    el.innerHTML += `
+      <div class="log-entry">
+        <span class="log-time">[${time}]</span>
+        <span class="log-text" style="${isError ? 'color: var(--neg);' : ''}">${msg}</span>
+      </div>`;
+    el.scrollTop = el.scrollHeight;
+  };
+
+  const apiGet = async (path) => {
+    const r = await fetch('https://discord.com/api/v9' + path, {
+      headers: { Authorization: token, 'Content-Type': 'application/json' }
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    return r.json();
+  };
+
+  const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+  $('fetchBtn').onclick = async () => {
+    token = $('tokenInput').value.trim();
+    if (!token) return;
+    $('fetchBtn').disabled = true;
+    $('fetchBtn').textContent = 'Connecting Engine...';
+    try {
+      const me = await apiGet('/users/@me');
+      const dms = await apiGet('/users/@me/channels');
+      
+      $('serverStatus').classList.add('online');
+      $('statusText').textContent = 'Connected';
+      
+      const disc = me.discriminator && me.discriminator !== '0' ? '#' + me.discriminator : '';
+      $('userInfo').style.display = 'block';
+      $('userInfo').innerHTML = `Logged in as: <strong>${me.username}${disc}</strong>`;
+      
+      channels = dms.filter(c => c.type === 1 || c.type === 3);
+      renderChannels();
+      
+      $('stepChannels').style.display = 'block';
+      $('stepExport').style.display = 'block';
+      $('sidebarExport').classList.add('visible');
+      log(`Handshake finalized. Discovered ${channels.length} valid DM channels.`);
+    } catch(e) {
+      $('serverStatus').classList.remove('online');
+      $('statusText').textContent = 'Error';
+      $('userInfo').style.display = 'block';
+      $('userInfo').style.color = 'var(--neg)';
+      $('userInfo').textContent = `Handshake dropped: ${e.message}`;
+      log(`Error connecting to gateway: ${e.message}`, true);
+    }
+    $('fetchBtn').disabled = false;
+    $('fetchBtn').textContent = 'Reconnect';
+  };
+
+  const initials = name => (name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  const colors = ['#7c6bff','#ff6b9d','#6bffd8','#ff6b6b','#3498DB'];
+  const colorFor = id => colors[parseInt(id || '0') % colors.length];
+
+  const renderChannels = () => {
+    const grid = $('channelsGrid');
+
+    const search = ($('userSearch')?.value || '')
+      .toLowerCase()
+      .trim();
+
+    const filteredChannels = channels.filter(ch => {
+      const recips = ch.recipients || [];
+
+      let name;
+
+      if (ch.type === 1) {
+        const u = recips[0] || {};
+        name = (u.global_name || u.username || '');
+      } else {
+        name = ch.name ||
+              recips.map(u => u.global_name || u.username).join(', ');
+      }
+
+      return name.toLowerCase().includes(search);
+    });
+
+    if (!filteredChannels.length) {
+      grid.innerHTML =
+        '<div class="stat-lbl">No matching conversations found.</div>';
+      return;
+    }
+
+    grid.innerHTML = '';
+
+    filteredChannels.forEach(ch => {
+      const card = document.createElement('div');
+      card.className =
+        'channel-card' +
+        (selected.has(ch.id) ? ' selected' : '');
+
+      const recips = ch.recipients || [];
+
+      let name, avatarHtml;
+
+      if (ch.type === 1) {
+        const u = recips[0] || {};
+        name = u.global_name || u.username || 'Unknown User';
+
+        const av = u.avatar
+          ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.webp?size=64`
+          : null;
+
+        avatarHtml = av
+          ? `<img src="${av}" onerror="this.style.display='none';this.parentNode.textContent='${initials(name)}'" />`
+          : initials(name);
+      } else {
+        name =
+          ch.name ||
+          recips.map(u => u.global_name || u.username).join(', ') ||
+          'Group Workspace DM';
+
+        avatarHtml = `GRP`;
+      }
+
+      card.innerHTML = `
+        <div class="avatar" style="background:${colorFor(recips[0]?.id)}20; color:${colorFor(recips[0]?.id)};">
+          ${avatarHtml}
+        </div>
+        <div class="channel-info">
+          <div class="channel-name">${name}</div>
+          <div class="channel-type">${ch.type === 3 ? 'Group DM' : 'Direct Message'}</div>
+        </div>
+      `;
+
+      card.onclick = () => {
+        if (selected.has(ch.id)) selected.delete(ch.id);
+        else selected.add(ch.id);
+
+        card.classList.toggle(
+          'selected',
+          selected.has(ch.id)
+        );
+
+        updateSelCount();
+      };
+
+      grid.appendChild(card);
+    });
+
+    updateSelCount();
+  };
+
+  const updateSelCount = () => {
+    $('selCount').textContent = `${selected.size} channels selected`;
+  };
+
+  $('selAllBtn').onclick = () => {
+    channels.forEach(c => selected.add(c.id));
+    renderChannels();
+  };
+  $('clearSelBtn').onclick = () => {
+    selected.clear();
+    renderChannels();
+  };
+
+  const fetchChannelMessages = async (channelId, maxCount) => {
+    let msgs = [], before = null;
+    while (msgs.length < maxCount && !stopped) {
+      const url = `/channels/${channelId}/messages?limit=100` + (before ? `&before=${before}` : '');
+      let batch;
+      try { batch = await apiGet(url); } catch(e) {
+        log(`Rate limit triggered. Cooling down engine for 5s...`, true);
+        await sleep(5000);
+        batch = await apiGet(url);
+      }
+      if (!batch.length) break;
+      msgs.push(...batch);
+      before = batch[batch.length - 1].id;
+      await sleep(350);
+    }
+    return msgs.slice(0, maxCount);
+  };
+
+  const processAndCleanMessages = (msgs) => {
+    return msgs.filter(m => {
+      if (m.author?.bot) return false;
+      if (m.type !== 0 && m.type !== 19) return false; 
+      if (!m.content || m.content.trim() === '') return false;
+      return true;
+    }).reverse().map(m => ({
+      author: m.author?.username || 'Unknown',
+      content: m.content.trim()
+    }));
+  };
+
+  $('exportBtn').onclick = async () => {
+    if (!selected.size) { log('Extraction aborted: No collection vectors selected.', true); return; }
+    stopped = false;
+    $('exportBtn').style.display = 'none';
+    $('stopBtn').style.display = '';
+    $('downloadsList').innerHTML = '';
+    $('visLogs').innerHTML = '';
+    $('statMsgs').textContent = '0';
+    $('statChannels').textContent = `0 / ${selected.size}`;
+    $('progressFill').style.width = '0%';
+
+    let totalMsgs = 0, done = 0;
+    const sel = [...selected];
+    const maxMsg = parseInt($('maxMsg').value) || 1000;
+
+    for (const chId of sel) {
+      if (stopped) break;
+      const ch = channels.find(c => c.id === chId);
+      const recips = ch.recipients || [];
+      const name = ch.type === 1 ? (recips[0]?.global_name || recips[0]?.username || 'Unknown') : (ch.name || 'Group DM');
+      
+      log(`Opening stream into structural arrays of [${name}]`);
+      try {
+        const rawMsgs = await fetchChannelMessages(chId, maxMsg);
+        const structuredData = processAndCleanMessages(rawMsgs);
+        
+        totalMsgs += structuredData.length;
+        done++;
+        
+        $('statMsgs').textContent = totalMsgs.toLocaleString();
+        $('statChannels').textContent = `${done} / ${sel.length}`;
+        $('progressFill').style.width = Math.round(done / sel.length * 100) + '%';
+
+        if (structuredData.length > 0) {
+          createDownloadItem(name, chId, structuredData);
+          log(`Package generated for [${name}]: Compiled ${structuredData.length} clean nodes.`);
+        } else {
+          log(`Skipped [${name}]: Contain no valid payloads matching raw human criteria.`);
+        }
+      } catch(e) {
+        log(`Pipeline structural damage on channel ${name}: ${e.message}`, true);
+      }
+    }
+
+    log(stopped ? 'Batch extraction broken down via instruction intercept.' : 'All batch configurations written and locked.');
+    $('exportBtn').style.display = '';
+    $('stopBtn').style.display = 'none';
+  };
+
+  const createDownloadItem = (channelName, id, data) => {
+    const list = $('downloadsList');
+    
+    if(list.querySelector('.stat-lbl')) {
+      list.innerHTML = '';
+    }
+
+    const sanitizedName = channelName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const txtContent = data.map(m => `${m.author}: ${m.content}`).join('\n');
+    
+    const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const item = document.createElement('div');
+    item.className = 'download-item';
+    item.innerHTML = `
+      <span>${channelName} (${data.length} messages)</span>
+      <a class="action-btn" href="${url}" download="DC_${sanitizedName}.txt" style="background:var(--accent); color:#fff; text-decoration:none; font-size:11px; padding:6px 12px; border-radius:6px;">
+        Download TXT
+      </a>
+    `;
+    list.appendChild(item);
+  };
+
+  document.addEventListener('input', e => {
+    if (e.target.id === 'userSearch') {
+      renderChannels();
+    }
+  });
+
+  $('stopBtn').onclick = () => { stopped = true; };
+  </script>
+</body>
+</html>
