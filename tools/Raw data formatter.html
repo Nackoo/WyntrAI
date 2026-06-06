@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WyntrAI — Training Data Formatter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght=700;800&display=swap" rel="stylesheet">
+  <style>
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #000000;
+    --surface: #080808;
+    --surface2: #101010;
+    --border: #2f3336;
+    --accent: #7c6bff;
+    --accent3: #6bffd8;
+    --text: #e8e8ff;
+    --muted: #6b6b8a;
+    --pos: #6bffd8;
+    --neg: #ff6b6b;
+    --warn: #ffb86b;
+    --font-text:
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+    --font-display: 'Syne', sans-serif;
+}
+
+::-webkit-scrollbar { width: 7px; }
+::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 10px; }
+body::-webkit-scrollbar { width: 0; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-text);
+    font-size: 13px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.layout-header {
+    height: 48px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    background: var(--surface);
+    z-index: 10;
+    position: sticky;
+    top: 0;
+}
+
+.logo {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+    cursor: pointer;
+}
+.logo span { color: #fff; }
+
+.header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.file-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-text);
+    transition: all 0.3s ease;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: all 0.3s ease;
+}
+
+.file-status.loaded .status-dot {
+    background: var(--pos);
+    box-shadow: 0 0 8px var(--pos);
+}
+
+.status-text {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+}
+
+.file-status.loaded .status-text { color: var(--text); }
+
+.container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel {
+    background: #000;
+    border-bottom: 1px solid var(--border);
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-family: var(--font-text);
+}
+
+.panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+button.action-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px;
+    border-radius: 8px;
+    font-family: var(--font-text);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+button.action-btn:hover {
+    background: var(--border);
+    border-color: var(--muted);
+    color: #fff;
+}
+
+button.action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+button.action-btn.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+    justify-content: center;
+    font-size: 12px;
+}
+
+button.action-btn.primary:hover { background: #6b5ae6; }
+
+button.action-btn.success {
+    background: var(--pos);
+    border-color: transparent;
+    color: #000;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+button.action-btn.success:hover { background: #50e0c0; }
+
+button.action-btn.danger {
+    background: var(--neg);
+    border-color: transparent;
+    color: #000;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+button.action-btn.danger:hover { background: #e05050; }
+
+.row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.spacer { flex: 1; }
+
+.tip-box {
+    line-height: 2;
+    margin: 4px 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.tip-box code {
+    font-family: var(--font-text);
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent3);
+}
+
+/* Drop Zone */
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 36px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+}
+
+.drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: #7c6bff10;
+}
+
+.drop-zone-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+.drop-zone-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+    font-family: var(--font-display);
+}
+
+.drop-zone-sub {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* Main formatter layout */
+.formatter-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    height: calc(100vh - 48px - 72px);
+}
+
+.messages-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    min-width: 0;
+    overflow: hidden;
+}
+
+.pairs-col {
+    width: 360px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.col-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.col-header-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+}
+
+.col-header-badge {
+    font-size: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 20px;
+    color: var(--text);
+    font-family: var(--font-text);
+}
+
+.messages-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    max-height: calc(100vh - 150px) !important;
+    scroll-behavior: smooth;
+}
+
+.msg-group-boundary {
+    text-align: center;
+    padding: 6px 0;
+    margin: 4px 0;
+    border-top: 1px solid #7c6bff30;
+    border-bottom: 1px solid #7c6bff30;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    font-weight: 600;
+    background: #7c6bff08;
+}
+
+.pair-group-boundary {
+    text-align: center;
+    padding: 6px 0;
+    margin: 4px 0;
+    border-top: 1px solid #6bffd830;
+    border-bottom: 1px solid #6bffd830;
+    font-size: 10px;
+    color: var(--accent3);
+    letter-spacing: 1px;
+    font-weight: 600;
+    background: #6bffd808;
+}
+
+.msg-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 7px 16px;
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+}
+
+.msg-item:hover { background: var(--surface2); }
+
+.msg-item.selected {
+    background: #7c6bff18;
+    border-bottom-color: #7c6bff20;
+}
+
+.msg-item.paired-highlight {
+    background: #6bffd810;
+    border-left: 3px solid var(--pos);
+}
+
+.msg-item.paired-highlight .msg-checkbox {
+    border-color: var(--pos);
+}
+
+.paired-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--pos);
+    background: #6bffd815;
+    border: 1px solid #6bffd840;
+    border-radius: 4px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+    margin-top: 3px;
+    white-space: nowrap;
+}
+
+/* File switcher */
+.file-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 25px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    overflow-x: auto;
+    flex-shrink: 0;
+    min-height: 38px;
+}
+
+.file-tabs::-webkit-scrollbar { height: 3px; }
+.file-tabs::-webkit-scrollbar-thumb { background: var(--border); }
+
+.file-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    font-family: var(--font-text);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    background: transparent;
+    flex-shrink: 0;
+    position: relative;
+    bottom: -1px;
+}
+
+.file-tab:hover { color: var(--text); background: var(--surface2); }
+
+.file-tab.active {
+    color: var(--accent3);
+    background: var(--bg);
+    border-color: var(--border);
+    border-bottom-color: var(--bg);
+}
+
+.file-tab-close {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1;
+    padding: 0 2px;
+    border-radius: 3px;
+    transition: all 0.1s;
+}
+
+.file-tab-close:hover { color: var(--neg); background: #ff6b6b20; }
+
+.file-tab-pairs-badge {
+    font-size: 9px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 10px;
+    padding: 1px 5px;
+    font-family: var(--font-text);
+    font-weight: 700;
+}
+
+.file-tab-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    border: 1px dashed var(--border);
+    transition: all 0.15s;
+    flex-shrink: 0;
+    margin-left: 4px;
+    background: transparent;
+    font-family: var(--font-text);
+}
+
+.file-tab-add:hover { color: var(--accent); border-color: var(--accent); background: #7c6bff10; }
+
+.msg-checkbox {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    transition: all 0.15s;
+}
+
+.msg-item.selected .msg-checkbox {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.msg-num {
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 26px;
+    text-align: right;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-family: var(--font-text);
+}
+
+.msg-author {
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    min-width: 70px;
+    margin-top: 1px;
+}
+
+.msg-content {
+    color: var(--text);
+    line-height: 1.5;
+    word-break: break-word;
+    font-size: 13px;
+    flex: 1;
+}
+
+.msg-edit-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    font-family: var(--font-text);
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    outline: none;
+}
+
+.msg-item.removed {
+    opacity: 0.3;
+    text-decoration: line-through;
+    pointer-events: none;
+}
+
+.pairs-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: calc(100vh - 200px)
+}
+
+.pair-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.pair-card:hover { 
+    border-color: var(--accent);
+    background: #7c6bff0a;
+}
+
+.pair-card.focused {
+    border-color: var(--warn);
+    background: #ffb86b15;
+    box-shadow: 0 0 8px #ffb86b30;
+}
+
+.pair-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pair-card.focused .pair-label {
+    color: var(--warn);
+}
+
+.pair-input {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    word-break: break-word;
+}
+
+.pair-reply {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.pair-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    transition: color 0.15s;
+    line-height: 1;
+    z-index: 5;
+}
+
+.pair-delete:hover { color: var(--neg); }
+
+.pair-number {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    font-size: 9px;
+    color: var(--muted);
+    font-family: var(--font-text);
+}
+
+/* Toolbar */
+.toolbar {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.toolbar-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.kbd {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: var(--accent3);
+    font-family: var(--font-text);
+}
+
+.toolbar-hint {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--font-text);
+}
+
+.selection-info {
+    font-size: 11px;
+    font-family: var(--font-text);
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 130px;
+}
+
+/* Stats */
+.stats-grid {
+    margin-left: auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 37px;
+    text-align: center;
+}
+
+.stat-val {
+    font-size: 18px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: #fff;
+}
+
+.stat-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Empty states */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.empty-state-icon { font-size: 24px; margin-bottom: 8px; }
+.empty-state-text { line-height: 1.8; }
+
+/* Unpaired section */
+.unpaired-section {
+    border-top: 1px solid var(--border);
+    padding: 10px 12px 6px;
+    flex-shrink: 0;
+}
+
+.unpaired-title {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.unpaired-list {
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.unpaired-item {
+    font-size: 11px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.unpaired-item:last-child { border-bottom: none; }
+
+.user-color-0 { color: #7c6bff; }
+.user-color-1 { color: #ff6b9d; }
+.user-color-2 { color: #6bffd8; }
+.user-color-3 { color: #ff6b6b; }
+.user-color-4 { color: #3498DB; }
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: var(--font-text);
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    pointer-events: none;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.toast.success { border-color: var(--pos); color: var(--pos); }
+.toast.error { border-color: var(--neg); color: var(--neg); }
+
+.file-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--accent3);
+    font-family: var(--font-text);
+}
+  </style>
+</head>
+<body>
+
+<header class="layout-header">
+  <div class="logo">WyntrAI <span style="color:white">Data Formatter</span></div>
+  <div class="stats-grid" style="width:500px;">
+    <div class="stat-box">
+      <div class="stat-val" id="selectionInfo">0</div>
+      <div class="stat-lbl">Selected</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="statTotal">0</div>
+      <div class="stat-lbl">Messages</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="statPairs">0</div>
+      <div class="stat-lbl">Pairs</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="statUnpaired">0</div>
+      <div class="stat-lbl">Unpaired</div>
+    </div>
+  </div>
+</header>
+
+<div class="file-tabs" id="fileTabs" style="display:none;"></div>
+
+<div class="container" id="importPanel">
+  <div class="panel">
+    <div class="panel-title">Step 1 — Import Raw Messages</div>
+    <div class="tip-box">
+      Import a <code>[platform]_[name].txt</code> file to begin. Each line should be formatted as <code>username: message content</code>. <br>
+      💡 <em>New Feature:</em> Hold <code>Ctrl + Click</code> on a pair card to <strong>focus</strong> it. Exporting JSON while a card is focused will only save pairs from that card down to the bottom.
+    </div>
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-zone-icon">📂</div>
+      <div class="drop-zone-title">Drop your .txt file here</div>
+      <div class="drop-zone-sub">or click to browse</div>
+    </div>
+    <input type="file" id="fileInput" accept=".txt" style="display:none">
+  </div>
+</div>
+
+<div id="formatterSection" style="display:none; flex:1; flex-direction:column;">
+
+  <div class="formatter-layout" id="formatterLayout">
+
+    <div class="messages-col">
+      <div class="col-header">
+        <span class="col-header-title">Messages</span>
+        <div class="spacer"></div>
+        <button class="action-btn" id="autoPairBtn" style="padding:6px 10px; font-size:10px; background:var(--accent); color:#fff; border-color:transparent;">⚡ Auto-Pair</button>
+        <button class="action-btn" id="clearSelBtn" style="padding:6px 10px; font-size:10px;">Clear Selection</button>
+      </div>
+      <div class="messages-list" id="messagesList"></div>
+    </div>
+
+    <div class="pairs-col">
+      <div class="col-header">
+        <span class="col-header-title">Pairs</span>
+        <div class="spacer"></div>
+        <div style="display: flex; gap: 4px;">
+          <button class="action-btn" id="importJsonBtn" style="padding:6px 10px; font-size:10px; background-color: #2b2b36;">Import JSON</button>
+          <button class="action-btn" id="exportFormattedBtn" style="padding:6px 10px; font-size:10px;">Export JSON</button>
+        </div>
+        <input type="file" id="jsonMergeInput" accept=".json" style="display:none">
+      </div>
+      <div class="pairs-list" id="pairsList"></div>
+      <div class="unpaired-section">
+        <div style="margin-top:8px;">
+          <button class="action-btn" id="exportUnformattedBtn" style="width:100%; justify-content:center; font-size:10px; padding:7px;">Export Unformatted TXT</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="autoPairModal" style="display:none; position:fixed; inset:0; background:#000000cc; z-index:200; align-items:center; justify-content:center;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; width:340px; display:flex; flex-direction:column; gap:16px; font-family:var(--font-text);">
+    <div style="font-family:var(--font-display); font-size:17px; font-weight:800; color:#fff;">⚡ Auto-Pair</div>
+    <div style="font-size:12px; color:var(--muted); line-height:1.6;">
+      Automatically pairs every adjacent A→B exchange. Consecutive messages from the same author are merged first.<br><br>
+      Optionally pick a <strong style="color:var(--text)">Bot Author</strong> — only replies from that person will be kept as the response side.
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <label style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:600;">Bot Author <span style="color:var(--muted); font-weight:400; text-transform:none;">(optional)</span></label>
+      <select id="autoPairBotSelect" style="background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:8px; font-size:12px; font-family:var(--font-text); outline:none; cursor:pointer;">
+        <option value="">— Pair all adjacent exchanges —</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="action-btn" id="autoPairCancelBtn" style="flex:1; justify-content:center; font-size:12px; padding:10px;">Cancel</button>
+      <button class="action-btn primary" id="autoPairConfirmBtn" style="flex:2; font-size:12px; padding:10px;">Run Auto-Pair</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let files = [];        
+let activeFileIdx = -1;
+
+function af() { return files[activeFileIdx]; }
+
+function getMessages()   { return af() ? af().messages   : []; }
+function getPairs()      { return af() ? af().pairs      : []; }
+function getHistory()    { return af() ? af().history    : []; }
+function getHistoryIdx() { return af() ? af().historyIdx : -1; }
+function getFileName()   { return af() ? af().fileName   : ''; }
+function getUserColors() { return af() ? af().userColors : {}; }
+function getColorIdx()   { return af() ? af().colorIdx   : 0; }
+
+let selected = new Set();
+const COLORS = ['user-color-0','user-color-1','user-color-2','user-color-3','user-color-4'];
+
+const DB_NAME = 'WyntrAI_Formatter_DB';
+const DB_VERSION = 1;
+const STORE_NAME = 'app_state';
+let db = null;
+
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = e => reject(e.target.error);
+        request.onsuccess = e => {
+            db = e.target.result;
+            resolve(db);
+        };
+        request.onupgradeneeded = e => {
+            const database = e.target.result;
+            if (!database.objectStoreNames.contains(STORE_NAME)) {
+                database.createObjectStore(STORE_NAME);
+            }
+        };
+    });
+}
+
+function saveToStorage() {
+    if (!db) return;
+    try {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put({ files, activeFileIdx }, 'state_v2');
+    } catch(e) {
+        console.error("IndexedDB Save Failed: ", e);
+    }
+}
+
+function loadFromStorage() {
+    return new Promise((resolve) => {
+        if (!db) return resolve(false);
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get('state_v2');
+        request.onsuccess = e => {
+            const data = e.target.result;
+            if (data && data.files && data.files.length > 0 && data.activeFileIdx >= 0) {
+                files = data.files;
+                activeFileIdx = data.activeFileIdx;
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+        };
+        request.onerror = () => resolve(false);
+    });
+}
+
+const $ = id => document.getElementById(id);
+let toastTimer;
+function toast(msg, type='') {
+    const el = $('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? ' '+type : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function getUserColor(author) {
+    const f = af();
+    if (!f.userColors[author]) {
+        f.userColors[author] = COLORS[f.colorIdx % COLORS.length];
+        f.colorIdx++;
+    }
+    return f.userColors[author];
+}
+
+function saveState() {
+    const f = af();
+    const snap = JSON.stringify({ messages: f.messages, pairs: f.pairs, focusedPairId: f.focusedPairId });
+    
+    f.history = f.history.slice(0, f.historyIdx + 1);
+    f.history.push(snap);
+    f.historyIdx++;
+    
+    if (f.history.length > 100) { f.history.shift(); f.historyIdx--; }
+}
+
+function undo() {
+    const f = af();
+    if (f.historyIdx <= 0) { toast('Nothing to undo', 'error'); return; }
+    
+    if (f.historyIdx === f.history.length) {
+        const currentSnap = JSON.stringify({ messages: f.messages, pairs: f.pairs, focusedPairId: f.focusedPairId });
+        f.history.push(currentSnap);
+    } else if (f.historyIdx === f.history.length - 1) {
+        f.history[f.historyIdx + 1] = JSON.stringify({ messages: f.messages, pairs: f.pairs, focusedPairId: f.focusedPairId });
+    }
+    
+    f.historyIdx--;
+    const snap = JSON.parse(f.history[f.historyIdx]);
+    
+    f.messages = snap.messages;
+    f.pairs = snap.pairs;
+    f.focusedPairId = snap.focusedPairId || null;
+    
+    selected.clear();
+    render();
+    toast('Undo');
+}
+
+function redo() {
+    const f = af();
+    if (f.historyIdx >= f.history.length - 1 || !f.history[f.historyIdx + 1]) { 
+        toast('Nothing to redo', 'error'); 
+        return; 
+    }
+    
+    f.historyIdx++;
+    const snap = JSON.parse(f.history[f.historyIdx]);
+    
+    f.messages = snap.messages;
+    f.pairs = snap.pairs;
+    f.focusedPairId = snap.focusedPairId || null;
+    
+    selected.clear();
+    render();
+    toast('Redo');
+}
+
+function parseMessages(text) {
+    const lines = text.split('\n');
+    const result = [];
+    let id = 0;
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const colonIdx = trimmed.indexOf(':');
+        if (colonIdx < 1) continue;
+        const author = trimmed.slice(0, colonIdx).trim();
+        const content = trimmed.slice(colonIdx + 1).trim();
+        if (!content) continue;
+        result.push({ id: id++, author, content, removed: false });
+    }
+    return result;
+}
+
+function getPairedIds() {
+    const s = new Set();
+    if (af() && af().pairs) {
+        af().pairs.forEach(p => { s.add(p.inputIdx); s.add(p.replyIdx); });
+    }
+    return s;
+}
+
+function getActiveMessages() {
+    return af() ? af().messages.filter(m => !m.removed) : [];
+}
+
+function render() {
+    if (!af()) return;
+    renderMessages();
+    renderPairs();
+    updateStats();
+    renderFileTabs();
+    saveToStorage();
+}
+
+function renderMessages() {
+    const list = $('messagesList');
+    list.innerHTML = '';
+    const active = getActiveMessages();
+    const pairedIds = getPairedIds();
+
+    active.forEach((msg, i) => {
+        if (i > 0 && i % 20 === 0) {
+            const boundary = document.createElement('div');
+            boundary.className = 'msg-group-boundary';
+            boundary.textContent = `── ${i} ──`;
+            list.appendChild(boundary);
+        }
+
+        const isPaired = pairedIds.has(msg.id);
+        const el = document.createElement('div');
+        el.className = 'msg-item' + (selected.has(msg.id) ? ' selected' : '') + (isPaired ? ' paired-highlight' : '');
+        el.dataset.id = msg.id;
+        el.id = `msg-dom-${msg.id}`;
+
+        const colorClass = getUserColor(msg.author);
+        el.innerHTML = `
+            <div class="msg-checkbox">${selected.has(msg.id) ? '✓' : ''}</div>
+            <div class="msg-num">[${i}]</div>
+            <div class="msg-author ${colorClass}">${escHtml(msg.author)}:</div>
+            <div class="msg-content" data-msg-id="${msg.id}">${escHtml(msg.content)}</div>
+            ${isPaired ? '<div class="paired-badge">✓ paired</div>' : ''}
+        `;
+
+        el.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            
+            if (e.ctrlKey || e.metaKey) {
+                e.stopPropagation();
+                const contentContainer = el.querySelector('.msg-content');
+                if (contentContainer.querySelector('input')) return; 
+                
+                const currentVal = msg.content;
+                const inputEl = document.createElement('input');
+                inputEl.type = 'text';
+                inputEl.className = 'msg-edit-input';
+                inputEl.value = currentVal;
+                
+                contentContainer.innerHTML = '';
+                contentContainer.appendChild(inputEl);
+                inputEl.focus();
+
+                const finishEdit = (save) => {
+                    const updatedVal = inputEl.value.trim();
+                    if (save && updatedVal && updatedVal !== currentVal) {
+                        saveState();
+                        msg.content = updatedVal;
+                        
+                        if (af() && af().pairs) {
+                            af().pairs.forEach(p => {
+                                if (p.inputIdx === msg.id) p.inputText = updatedVal;
+                                if (p.replyIdx === msg.id) p.replyText = updatedVal;
+                            });
+                        }
+                        toast('Message updated!', 'success');
+                    }
+                    render();
+                };
+
+                inputEl.addEventListener('keydown', (evt) => {
+                    if (evt.key === 'Enter') {
+                        evt.stopPropagation();
+                        finishEdit(true);
+                    } else if (evt.key === 'Escape') {
+                        evt.stopPropagation();
+                        finishEdit(false);
+                    }
+                });
+
+                inputEl.addEventListener('blur', () => {
+                    finishEdit(true);
+                });
+                return;
+            }
+
+            if (e.shiftKey) {
+                toggleSelect(msg.id);
+            } else {
+                selected.clear();
+                toggleSelect(msg.id);
+            }
+            renderMessages();
+            updateSelectionInfo();
+        });
+
+        list.appendChild(el);
+    });
+
+    if (active.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-text">No messages yet.<br>Import a .txt file to begin.</div></div>';
+    }
+
+    updateSelectionInfo();
+}
+
+function updateSelectionInfo() {
+    $('selectionInfo').textContent = `${selected.size}`;
+}
+
+function renderPairs() {
+    const list = $('pairsList');
+    list.innerHTML = '';
+    const pairs = af().pairs;
+    const currentFocusedId = af().focusedPairId || null;
+
+    if (pairs.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔗</div><div class="empty-state-text">No pairs yet.<br>Select two messages and press Pair.</div></div>';
+    } else {
+        pairs.forEach((p, i) => {
+            if (i > 0 && i % 20 === 0) {
+                const boundary = document.createElement('div');
+                boundary.className = 'pair-group-boundary';
+                boundary.textContent = `── Pair ${i} ──`;
+                list.appendChild(boundary);
+            }
+
+            const isFocused = (currentFocusedId !== null && p.id === currentFocusedId);
+            const card = document.createElement('div');
+            card.className = 'pair-card' + (isFocused ? ' focused' : '');
+            card.innerHTML = `
+                <div class="pair-label">
+                    <span>Pair ${i + 1}</span>
+                    ${isFocused ? '<span style="color:var(--warn); font-size:8px;">★ EXPORT ROOT</span>' : ''}
+                </div>
+                <div class="pair-input">${escHtml(p.inputText)}</div>
+                <div class="pair-reply">${escHtml(p.replyText)}</div>
+                <button class="pair-delete" data-idx="${i}" title="Remove pair">✕</button>
+            `;
+            
+            card.addEventListener('click', (e) => {
+                if (e.target.classList.contains('pair-delete')) return;
+                
+                if (e.ctrlKey || e.metaKey) {
+                    e.stopPropagation();
+                    saveState();
+                    if (af().focusedPairId === p.id) {
+                        af().focusedPairId = null;
+                        toast('Pair unfocused');
+                    } else {
+                        af().focusedPairId = p.id;
+                        toast(`Focused on Pair ${i + 1} upward truncated for export`, 'warn');
+                    }
+                    render();
+                    return;
+                }
+
+                const targetDomId = `msg-dom-${p.inputIdx}`;
+                const targetEl = $(targetDomId);
+                if (targetEl) {
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    selected.clear();
+                    selected.add(p.inputIdx);
+                    selected.add(p.replyIdx);
+                    renderMessages();
+                } else {
+                    toast('Linked message location was removed or merged.', 'warn');
+                }
+            });
+
+            list.appendChild(card);
+        });
+
+        list.querySelectorAll('.pair-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                saveState();
+                const removedPair = af().pairs[idx];
+                if (removedPair && af().focusedPairId === removedPair.id) {
+                    af().focusedPairId = null;
+                }
+                af().pairs.splice(idx, 1);
+                render();
+                toast('Pair removed');
+            });
+        });
+    }
+}
+
+function updateStats() {
+    const active = getActiveMessages();
+    const pairedIds = getPairedIds();
+    const unpaired = active.filter(m => !pairedIds.has(m.id)).length;
+    $('statTotal').textContent = active.length;
+    $('statPairs').textContent = af().pairs.length;
+    $('statUnpaired').textContent = unpaired;
+}
+
+function toggleSelect(id) {
+    if (selected.has(id)) selected.delete(id);
+    else selected.add(id);
+}
+
+function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function mergeSelected() {
+    const active = getActiveMessages();
+    const selMsgs = active.filter(m => selected.has(m.id));
+    if (selMsgs.length < 2) return;
+    const authors = [...new Set(selMsgs.map(m => m.author))];
+    if (authors.length !== 1) { toast('Can only merge messages from the same author', 'error'); return; }
+
+    saveState();
+
+    const f = af();
+    const ids = selMsgs.map(m => m.id);
+    const indices = ids.map(id => f.messages.findIndex(m => m.id === id));
+    indices.sort((a,b) => a-b);
+
+    const merged = indices.map(i => f.messages[i].content).join('. ');
+    f.messages[indices[0]].content = merged;
+
+    for (let i = 1; i < indices.length; i++) {
+        f.messages[indices[i]].removed = true;
+    }
+
+    const removedIds = indices.slice(1).map(i => f.messages[i].id);
+    f.pairs.forEach(p => {
+        if (removedIds.includes(p.inputIdx)) p.inputIdx = f.messages[indices[0]].id;
+        if (removedIds.includes(p.replyIdx)) p.replyIdx = f.messages[indices[0]].id;
+    });
+
+    selected.clear();
+    render();
+    toast(`Merged ${selMsgs.length} messages`, 'success');
+}
+
+function removeSelected() {
+    if (selected.size === 0) return;
+    
+    saveState();
+    
+    const f = af();
+    const toRemove = [...selected];
+    toRemove.forEach(id => {
+        const idx = f.messages.findIndex(m => m.id === id);
+        if (idx !== -1) f.messages[idx].removed = true;
+    });
+
+    f.pairs = f.pairs.filter(p => !toRemove.includes(p.inputIdx) && !toRemove.includes(p.replyIdx));
+
+    selected.clear();
+    render();
+    toast(`Removed ${toRemove.length} message(s)`);
+}
+
+function pairSelected() {
+    const active = getActiveMessages();
+    const selMsgs = active.filter(m => selected.has(m.id));
+    if (selMsgs.length !== 2) { toast('Select exactly 2 messages to pair', 'error'); return; }
+    const authors = [...new Set(selMsgs.map(m => m.author))];
+    if (authors.length !== 2) { toast('Messages must be from different users', 'error'); return; }
+
+    saveState();
+
+    const activeIds = active.map(m => m.id);
+    selMsgs.sort((a, b) => activeIds.indexOf(a.id) - activeIds.indexOf(b.id));
+
+    af().pairs.push({
+        id: Date.now(),
+        inputIdx: selMsgs[0].id,
+        replyIdx: selMsgs[1].id,
+        inputText: selMsgs[0].content,
+        replyText: selMsgs[1].content,
+    });
+
+    selected.clear();
+    render();
+    toast(`Pair created!`, 'success');
+}
+
+function importAndMergeJson(file) {
+    if (!file || !file.name.endsWith('.json')) { toast('Please select a valid .json data file', 'error'); return; }
+    if (activeFileIdx === -1) { toast('Please open a txt dataset file first before merging.', 'error'); return; }
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data || !Array.isArray(data.conversations)) {
+                toast('Invalid format: Missing "conversations" list', 'error');
+                return;
+            }
+
+            const currentPairs = af().pairs;
+            const currentMessages = af().messages;
+            let mergeCount = 0;
+
+            saveState();
+
+            data.conversations.forEach(conv => {
+                const incomingInput = conv.input ? conv.input.trim() : "";
+                const incomingReply = conv.replies && conv.replies[0] ? conv.replies[0].trim() : "";
+
+                if (!incomingInput || !incomingReply) return;
+
+                const exists = currentPairs.some(p => 
+                    p.inputText.trim() === incomingInput && 
+                    p.replyText.trim() === incomingReply
+                );
+
+                if (!exists) {
+                    const matchedInputMsg = currentMessages.find(m => !m.removed && m.content.trim() === incomingInput);
+                    const matchedReplyMsg = currentMessages.find(m => !m.removed && m.content.trim() === incomingReply);
+
+                    currentPairs.push({
+                        id: Date.now() + Math.random(),
+                        inputIdx: matchedInputMsg ? matchedInputMsg.id : -1,
+                        replyIdx: matchedReplyMsg ? matchedReplyMsg.id : -1,
+                        inputText: incomingInput,
+                        replyText: incomingReply
+                    });
+                    mergeCount++;
+                }
+            });
+
+            if (mergeCount > 0) {
+                render();
+                toast(`Successfully merged ${mergeCount} new pair(s)!`, 'success');
+            } else {
+                toast('No new unique pairing matches discovered to merge.', 'info');
+            }
+
+        } catch (err) {
+            toast('Failed to parse file structural content.', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function exportFormatted() {
+    let pairs = af().pairs;
+    if (pairs.length === 0) { toast('No pairs to export', 'error'); return; }
+
+    const currentFocusedId = af().focusedPairId || null;
+    if (currentFocusedId !== null) {
+        const targetIndex = pairs.findIndex(p => p.id === currentFocusedId);
+        if (targetIndex !== -1) {
+            pairs = pairs.slice(targetIndex);
+        }
+    }
+
+    const conversations = pairs.map(p => ({
+        input: p.inputText,
+        replies: [p.replyText]
+    }));
+
+    const json = JSON.stringify({ conversations }, null, 2);
+    const baseName = af().fileName.replace(/\.[^.]+$/, '').replace(/^[A-Z]+_/i, '');
+    download(`DATA_${baseName}.json`, json, 'application/json');
+    toast(`Exported DATA_${baseName}.json (${conversations.length} pairs)`, 'success');
+}
+
+function exportUnformatted() {
+    const active = getActiveMessages();
+    const pairedIds = getPairedIds();
+    const unpaired = active.filter(m => !pairedIds.has(m.id));
+
+    if (unpaired.length === 0) { toast('No unpaired messages to export', 'error'); return; }
+
+    const text = unpaired.map(m => `${m.author}: ${m.content}`).join('\n');
+    const baseName = af().fileName.replace(/\.[^.]+$/, '').replace(/^[A-Z]+_/i, '');
+    download(`UNFORMATTED_${baseName}.txt`, text, 'text/plain');
+    toast(`Exported UNFORMATTED_${baseName}.txt`, 'success');
+}
+
+function download(name, content, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function createFileSlot(fileName, messages) {
+    return { fileName, messages, pairs: [], focusedPairId: null, history: [], historyIdx: -1, userColors: {}, colorIdx: 0 };
+}
+
+function handleFile(file) {
+    if (!file || !file.name.endsWith('.txt')) { toast('Please upload a .txt file', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+        const content = e.target.result;
+        const parsed = parseMessages(content);
+
+        const existing = files.findIndex(f => f.fileName === file.name);
+        if (existing !== -1) {
+            activeFileIdx = existing;
+            selected.clear();
+            showFormatter();
+            render();
+            toast(`Switched to ${file.name}`, 'success');
+            return;
+        }
+
+        const slot = createFileSlot(file.name, parsed);
+        files.push(slot);
+        activeFileIdx = files.length - 1;
+
+        const f = af();
+        const snap = JSON.stringify({ messages: f.messages, pairs: f.pairs, focusedPairId: f.focusedPairId });
+        f.history.push(snap);
+        f.historyIdx = 0;
+
+        selected.clear();
+        showFormatter();
+        render();
+        toast(`Loaded ${file.name} — ${parsed.length} messages`, 'success');
+    };
+    reader.readAsText(file);
+}
+
+function switchToFile(idx) {
+    if (idx < 0 || idx >= files.length) return;
+    activeFileIdx = idx;
+    selected.clear();
+    showFormatter();
+    render();
+}
+
+function closeFile(idx) {
+    if (files.length === 1) {
+        files = [];
+        activeFileIdx = -1;
+        selected.clear();
+        $('formatterSection').style.display = 'none';
+        $('importPanel').style.display = '';
+        $('fileTabs').style.display = 'none';
+        saveToStorage();
+        return;
+    }
+    files.splice(idx, 1);
+    if (activeFileIdx >= files.length) activeFileIdx = files.length - 1;
+    else if (activeFileIdx > idx) activeFileIdx--;
+    selected.clear();
+    showFormatter();
+    render();
+    toast('File closed');
+}
+
+function renderFileTabs() {
+    const tabsEl = $('fileTabs');
+    if (files.length === 0) { tabsEl.style.display = 'none'; return; }
+    tabsEl.style.display = 'flex';
+    tabsEl.innerHTML = '';
+
+    files.forEach((f, i) => {
+        const tab = document.createElement('div');
+        tab.className = 'file-tab' + (i === activeFileIdx ? ' active' : '');
+        const pairsCount = f.pairs.length;
+        tab.innerHTML = `
+            <span>📄 ${escHtml(f.fileName)}</span>
+            ${pairsCount > 0 ? `<span class="file-tab-pairs-badge">${pairsCount}</span>` : ''}
+            <span class="file-tab-close" data-close="${i}" title="Close file">✕</span>
+        `;
+        tab.addEventListener('click', (e) => {
+            if (e.target.dataset.close !== undefined) return;
+            switchToFile(i);
+        });
+        tabsEl.appendChild(tab);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'file-tab-add';
+    addBtn.innerHTML = '＋ Add File';
+    addBtn.addEventListener('click', () => $('fileInput').click());
+    tabsEl.appendChild(addBtn);
+
+    tabsEl.querySelectorAll('[data-close]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeFile(parseInt(btn.dataset.close));
+        });
+    });
+}
+
+function showFormatter() {
+    $('importPanel').style.display = 'none';
+    const fs = $('formatterSection');
+    fs.style.display = 'flex';
+    renderFileTabs();
+}
+
+document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
+    if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); return; }
+
+    if (!$('formatterSection').style.display || $('formatterSection').style.display === 'none') return;
+
+    if (document.activeElement.classList.contains('msg-edit-input')) return;
+
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const active = getActiveMessages();
+        const selMsgs = active.filter(m => selected.has(m.id));
+        const authors = [...new Set(selMsgs.map(m => m.author))];
+        if (selMsgs.length >= 2 && authors.length === 1) {
+            mergeSelected();
+        } else if (selMsgs.length === 2 && authors.length === 2) {
+            pairSelected();
+        }
+    }
+
+    if (e.key === 'Backspace') {
+        if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            removeSelected();
+        }
+    }
+});
+
+function openAutoPairModal() {
+    if (activeFileIdx === -1) { toast('Load a file first', 'error'); return; }
+
+    const active = getActiveMessages();
+    const authors = [...new Set(active.map(m => m.author))];
+    const sel = $('autoPairBotSelect');
+    sel.innerHTML = '<option value="">— Pair all adjacent exchanges —</option>';
+    authors.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        sel.appendChild(opt);
+    });
+
+    $('autoPairModal').style.display = 'flex';
+}
+
+function runAutoPair() {
+    const botAuthor = $('autoPairBotSelect').value.toLowerCase().trim();
+    const active = getActiveMessages();
+
+    if (active.length < 2) { toast('Not enough messages to pair', 'error'); return; }
+
+    const merged = [];
+    for (const msg of active) {
+        if (merged.length && merged[merged.length - 1].author.toLowerCase() === msg.author.toLowerCase()) {
+            merged[merged.length - 1].content += ' ' + msg.content;
+        } else {
+            merged.push({ id: msg.id, author: msg.author, content: msg.content });
+        }
+    }
+
+    saveState();
+    const f = af();
+    const existingPairs = f.pairs;
+    const existingKeys = new Set(existingPairs.map(p => p.inputText.trim().toLowerCase() + '||' + p.replyText.trim().toLowerCase()));
+
+    let added = 0;
+    for (let i = 0; i < merged.length - 1; i++) {
+        const a = merged[i];
+        const b = merged[i + 1];
+        if (a.author.toLowerCase() === b.author.toLowerCase()) continue;
+        if (botAuthor && b.author.toLowerCase() !== botAuthor) continue;
+
+        const key = a.content.trim().toLowerCase() + '||' + b.content.trim().toLowerCase();
+        if (existingKeys.has(key)) continue;
+
+        existingPairs.push({
+            id: Date.now() + Math.random(),
+            inputIdx:  a.id,
+            replyIdx:  b.id,
+            inputText: a.content,
+            replyText: b.content,
+        });
+        existingKeys.add(key);
+        added++;
+    }
+
+    $('autoPairModal').style.display = 'none';
+    render();
+    if (added > 0) toast(`Auto-paired ${added} new pair${added > 1 ? 's' : ''}!`, 'success');
+    else toast('No new pairs found — already all paired?', 'info');
+}
+
+$('autoPairBtn').addEventListener('click', openAutoPairModal);
+$('autoPairCancelBtn').addEventListener('click', () => { $('autoPairModal').style.display = 'none'; });
+$('autoPairConfirmBtn').addEventListener('click', runAutoPair);
+
+$('autoPairModal').addEventListener('click', e => {
+    if (e.target === $('autoPairModal')) $('autoPairModal').style.display = 'none';
+});
+
+$('dropZone').addEventListener('dragover', e => { e.preventDefault(); $('dropZone').classList.add('drag-over'); });
+$('dropZone').addEventListener('dragleave', () => $('dropZone').classList.remove('drag-over'));
+$('dropZone').addEventListener('drop', e => {
+    e.preventDefault();
+    $('dropZone').classList.remove('drag-over');
+    handleFile(e.dataTransfer.files[0]);
+});
+$('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+
+$('importJsonBtn').addEventListener('click', () => $('jsonMergeInput').click());
+$('jsonMergeInput').addEventListener('change', e => {
+    importAndMergeJson(e.target.files[0]);
+    e.target.value = ''; 
+});
+
+$('clearSelBtn').addEventListener('click', () => { selected.clear(); renderMessages(); });
+$('exportFormattedBtn').addEventListener('click', exportFormatted);
+$('exportUnformattedBtn').addEventListener('click', exportUnformatted);
+
+initDB().then(() => {
+    return loadFromStorage();
+}).then((hasData) => {
+    if (hasData) {
+        showFormatter();
+        render();
+    }
+}).catch(err => {
+    console.error("Could not initialize storage engine backend:", err);
+});
+</script>
+</body>
+</html>
