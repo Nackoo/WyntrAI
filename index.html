@@ -321,7 +321,7 @@
             box-shadow: 5px 0 25px rgba(0,0,0,0.5);
         }
         .chat-input-area {
-            padding: 16px 14px 24px 14px;
+            padding: 16px 14px 14px 14px;
         }
         .chat-sidebar.open {
             transform: translateX(0);
@@ -354,6 +354,9 @@
       border: none;
       z-index: -1;
       pointer-events: none;
+      @media (max-width: 700px) {
+        display: none;
+      }
     }
   </style>
 </head>
