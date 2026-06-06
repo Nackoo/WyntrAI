@@ -1,0 +1,69 @@
+
+TRAINING DATASETS:
+    1. export file every 100 messages paired, merge, retrain, and test model to ensure model doesn't break.
+    2. do not include these to training data:
+        1. names
+        2. URLs
+        3. highly specific topic messages
+        4. special characters
+        5. excessive punctuation
+        6. excessive emoji 
+        7. codes
+    3. long messages are highly recommended
+    4. very short messages are highly not recommended except if actually useful
+    5. training data can only be scraped from DM conversations
+
+
+TRAIN GUIDELINES:
+    1. Export DM conversations (make sure you have permission from the DM owner)
+        1. whatsapp:
+            1. open whatsapp on mobile
+            2. open any DM 
+            3. more
+            4. export chat
+            5. format using "Whatsapp DM stripper.html"
+            6. download formatted
+        2. Discord (please note that exporting Discord DMs violates their Terms of Service):
+            1. open Discord in browser
+            2. open dev tools (CTRL+SHIFT+I)
+            3. network tab
+            4. Look for a request payload heading to "discord.com/api"
+            5. Find the "Authorization" code under "Request" Headers
+            6. open "Discord DM exporter.html"
+            7. paste token
+            8. select DMs
+            9. export
+            10. download formatted
+    2. Format DM conversations
+        1. open "raw data formatter"
+        2. drop formatted .txt DM file
+        3. (more instructions at "Data formatter guidelines.txt")
+        4. export JSON
+    3. Merge dataset if there is existing training JSON dataset
+        1. open "Data merger.html"
+        2. select existing JSON dataset
+        3. select newly exported JSON
+        4. download merged JSON
+    4. training
+        1. open google colab (https://colab.research.google.com/)
+        2. new notebook
+        3. runtime
+        4. change runtime type
+        5. hardware accelerator: T4 GPU
+        6. go to "Files" section 📁 
+        7. drag and drop
+            1. /WyntrAI/Training/train.py
+            2. latest JSON dataset (make sure it's named "data.json")
+            3. /WyntrAI/Wyntr_chatbot/model.py
+            4. /WyntrAI/Wyntr_chatbot/utils.py
+        8. + code
+        9. type "!python train.py"
+        10. run ▶️
+        11. wait after training is done
+        12. download "model.pth" 
+        13. place "model.pth" to /WyntrAI/Wyntr_chatbot/
+    5. running model
+        1. open CMD or PowerShell
+        2. type "cd downloads/wyntrai/wyntr_chatbot/"
+        3. type "python server.py" (make sure python is installed)
+        4. open "http://127.0.0.1:7860" on browser
