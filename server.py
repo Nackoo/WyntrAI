@@ -3,7 +3,7 @@ from flask_cors import CORS
 import torch, os
 
 from model import Encoder, Decoder, Seq2Seq
-from utils import sentence_to_indices, indices_to_sentence
+from utils import sentence_to_indices, indices_to_sentence, normalize_contractions
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
@@ -65,11 +65,12 @@ def index():
 def predict():
     global model, ck
 
-    sentence    = request.json["sentence"]
-    vocab       = ck["vocab"]
-    temperature = float(request.json.get("temperature", 0.7))
-    beam_width  = int(request.json.get("beam_width",    3))
-    max_len     = int(request.json.get("max_len", 50))
+    raw_sentence = request.json["sentence"]
+    sentence     = normalize_contractions(raw_sentence)
+    vocab        = ck["vocab"]
+    temperature  = float(request.json.get("temperature", 0.7))
+    beam_width   = int(request.json.get("beam_width",    3))
+    max_len      = int(request.json.get("max_len", 50))
 
     src_indices = sentence_to_indices(sentence, ck["vocab"], ck.get("w2i"))
 
