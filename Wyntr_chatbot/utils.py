@@ -1,15 +1,59 @@
 """
 utils.py — tokenization, vocabulary, and tensor helpers for the seq2seq model.
-
-Changes vs original:
-  - build_vocab uses a single-pass set comprehension (faster for large corpora).
-  - sentence_to_indices and encode_with_sos_eos always accept a pre-built w2i,
-    so the hot path never rebuilds the dict.
-  - collate_fn is unchanged (already optimal).
 """
 
 import re
 import torch
+
+def normalize_contractions(text):
+    """
+    Expands common informal contractions to a standard format.
+    """
+    contraction_map = {
+        "whats": "what's",
+        "im": "i'm",
+        "youre": "you're",
+        "youve": "you've",
+        "youll": "you'll",
+        "youd": "you'd",
+        "theyre": "they're",
+        "theyve": "they've",
+        "theyll": "they'll",
+        "theyd": "they'd",
+        "weve": "we've",
+        "well": "we'll",
+        "wed": "we'd",
+        "ive": "i've",
+        "id": "i'd",
+        "shouldnt": "shouldn't",
+        "shouldve": "should've",
+        "couldnt": "couldn't",
+        "couldve": "could've",
+        "cant": "can't",
+        "wont": "won't",
+        "dont": "don't",
+        "wasnt": "wasn't",
+        "werent": "weren't",
+        "arent": "aren't",
+        "hasnt": "hasn't",
+        "havent": "haven't",
+        "hadnt": "hadn't",
+        "wouldnt": "wouldn't",
+        "wouldve": "would've",
+        "didnt": "didn't",
+        "doesnt": "doesn't",
+        "isnt": "isn't",
+        "its": "it's",
+        "thats": "that's",
+        "theres": "there's",
+        "lets": "let's",
+    }
+    
+    words = text.split()
+    normalized = [contraction_map.get(w.lower(), w) for w in words]
+    
+    return " ".join(normalized)
+
 
 PAD_TOKEN = "<PAD>"   
 SOS_TOKEN = "<SOS>"   
