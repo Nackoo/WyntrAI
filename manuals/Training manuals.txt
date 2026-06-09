@@ -1,4 +1,3 @@
-
 TRAINING DATASETS:
     1. export file every 100 messages paired, merge, retrain, and test model to ensure model doesn't break.
     2. do not include these to training data:
