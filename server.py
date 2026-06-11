@@ -68,11 +68,9 @@ def enrich_user_input(user_text, history):
     user_clean = user_text.strip().lower()
     user_words = user_clean.rstrip('.!?').split()
     
-    # Heuristic 1: If it's an explicit question, it's informative. Skip fusion!
     if user_text.strip().endswith('?'):
         return user_text, "current"
         
-    # Heuristic 2: If it already contains a subject/verb combo, it's a complete statement.
     structural_verbs = {
         "is", "are", "am", "was", "were", "can", "could", "will", "would", 
         "do", "does", "did", "have", "has", "had", "go", "get", "like", "want"
@@ -80,12 +78,10 @@ def enrich_user_input(user_text, history):
     if len(user_words) >= 3 and any(w in structural_verbs for w in user_words):
         return user_text, "current"
         
-    # Extract the text content of the last turn
     last_msg = history[-1]
     last_turn_text = last_msg.get("content", "") if isinstance(last_msg, dict) else str(last_msg)
     context_clean = last_turn_text.strip()
     
-    # Pronoun POV transformation map
     pronoun_map = {
         "your": "my", "you": "i", "yours": "mine", "yourself": "myself",
         "my": "your", "i": "you", "mine": "yours", "myself": "yourself",
@@ -106,16 +102,13 @@ def enrich_user_input(user_text, history):
                 inverted.append(w)
         return " ".join(inverted)
 
-    # Contextual variants classification
     yes_variants = {"yes", "yeah", "yep", "yup", "sure", "correct", "ok", "okay"}
     no_variants = {"no", "nope", "nah", "not"}
 
-    # 1. HANDLE CONFIRMATIONS (e.g., Bot: "Is it raining?" -> User: "yes")
     if user_clean.rstrip('.!?') in yes_variants:
         clean_ctx = re.sub(r'^(yo|hey|hi|hello|please)\s+', '', context_clean, flags=re.IGNORECASE).rstrip('?')
         return f"{user_text.strip()}, {invert_pov(clean_ctx).lower()}", "history"
 
-    # 2. HANDLE NEGATIONS (e.g., Bot: "yo enough for today" -> User: "no")
     elif user_clean.rstrip('.!?') in no_variants:
         clean_ctx = re.sub(r'^(yo|hey|hi|hello|please)\s+', '', context_clean, flags=re.IGNORECASE).rstrip('?')
         inv_ctx = invert_pov(clean_ctx).lower()
@@ -124,13 +117,10 @@ def enrich_user_input(user_text, history):
             return f"{user_text.strip()}, it's not {inv_ctx}", "history"
         return f"{user_text.strip()}, it is not the case that {inv_ctx}", "history"
 
-    # 3. HANDLE UNINFORMATIVE SLOT-FILLING (e.g., Bot: "What day is your exam?" -> User: "wednesday")
     else:
-        # Only slot-fill if the bot actually posed a question
         if not last_turn_text.strip().endswith('?'):
             return user_text, "current"
             
-        # Strip interrogative prefix tokens to isolate the predicate
         q_lead_ins = {"what", "when", "where", "which", "who", "why", "how", "day", "time", "date"}
         filtered_words = [w for w in context_clean.rstrip('?').split() if w.lower() not in q_lead_ins]
         
@@ -155,7 +145,6 @@ def predict():
     max_len      = int(request.json.get("max_len", 50))
     vocab        = ck["vocab"]
 
-    # Dynamic evaluation and structural context fusion
     enriched_sentence, ctx_source = enrich_user_input(raw_sentence, history)
 
     sentence = normalize_contractions(enriched_sentence)
