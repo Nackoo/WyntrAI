@@ -59,8 +59,8 @@ model, ck = load()
 
 def enrich_user_input(user_text, history):
     """
-    Universally links user responses back to the previous bot turn unless
-    a semantic topic pivot is detected using the model's Encoder.
+    Universally links every single user response back to the previous bot turn
+    to ensure full context retention across implicit phrases and pronouns.
     """
     if not history:
         return user_text, "current"
@@ -78,33 +78,6 @@ def enrich_user_input(user_text, history):
     
     if not context_clean:
         return user_text, "current"
-
-    # -------------------------------------------------------------------------
-    # NEW: SEMANTIC TOPIC PIVOT DETECTION (Reusing model.pth Encoder)
-    # -------------------------------------------------------------------------
-    def get_sentence_embedding(text):
-        token_indices = sentence_to_indices(normalize_contractions(text), ck["vocab"], ck.get("w2i"))
-        if not token_indices:
-            return None
-        tensor = torch.tensor([token_indices], dtype=torch.long)
-        with torch.no_grad():
-            # Encoder output shape: (1, seq_len, embed_dim)
-            memory = model.encoder(tensor)
-            # Mean pool along seq_len dimension to get a single (embed_dim) vector
-            return memory.mean(dim=1).squeeze(0)
-
-    user_emb = get_sentence_embedding(user_clean)
-    ctx_emb = get_sentence_embedding(context_clean)
-
-    if user_emb is not None and ctx_emb is not None:
-        # Calculate cosine similarity between current phrase and context
-        similarity = torch.nn.functional.cosine_similarity(user_emb, ctx_emb, dim=0).item()
-        
-        # NOTE: Adjust this threshold (0.25 - 0.35) based on your specific training weights
-        if similarity < 0.28:
-            # Topic has drifted significantly. Do not fuse history context!
-            return user_text, "current"
-    # -------------------------------------------------------------------------
 
     # Pronoun POV transformation map
     pronoun_map = {
@@ -159,14 +132,20 @@ def enrich_user_input(user_text, history):
             return f"{user_clean} {aux_verb} {remaining_core.lower()}", "history"
 
     # CATEGORY 4: UNIVERSAL STRUCTURAL LINKING (e.g., "why would i?", "what's on your mind?")
+    # Formulates an explicit linguistic bridge so the encoder always maps target references.
     question_starters = {
         "why", "how", "what", "where", "who", "when", "which",
         "would", "could", "should", "can", "will", "shall",
         "is", "are", "am", "was", "were", "do", "does", "did"
     }
     
+    # FIX: Define user_words so it can be checked safely
     user_words = user_lower.split()
+    
+    # Determine if it structurally acts as a question
     is_question = user_clean.endswith('?') or (user_words and user_words[0] in question_starters)
+    
+    # Clean up any trailing punctuation so our bridge formatting stays tidy
     base_text = user_clean.rstrip('?.!')
 
     if is_question:
