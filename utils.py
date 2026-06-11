@@ -21,7 +21,6 @@ def normalize_contractions(text):
         "theyll": "they'll",
         "theyd": "they'd",
         "weve": "we've",
-        "well": "we'll",
         "wed": "we'd",
         "ive": "i've",
         "id": "i'd",

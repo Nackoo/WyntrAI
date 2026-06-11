@@ -1,12 +1,11 @@
-from flask import Flask, jsonify, request, send_file, session
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
-import torch, os
+import torch, os, re
 
 from model import Encoder, Decoder, Seq2Seq
 from utils import sentence_to_indices, indices_to_sentence, normalize_contractions
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 @app.after_request
@@ -42,61 +41,104 @@ def load():
         dropout         = dropout,
         dim_feedforward = dim_feedforward,
     )
-
+    
     model = Seq2Seq(
         encoder, decoder,
         sos_idx = ck["sos_idx"],
         eos_idx = ck["eos_idx"],
         pad_idx = ck["pad_idx"],
     )
-
+    
     encoder.load_state_dict(ck["encoder_state"])
     decoder.load_state_dict(ck["decoder_state"])
-
+    
     model.eval()
     return model, ck
 
 model, ck = load()
 
-# ---------------------------------------------------------------------------
-# In-memory history store keyed by session id.
-# Each entry: {"user": str, "bot": str}
-# We keep only the last 1 turn per session (sufficient for the fallback logic).
-# ---------------------------------------------------------------------------
-_history: dict[str, list[dict]] = {}
-
-MIN_TOKENS = 2  # fewer tokens than this → sentence is "too short / uninformative"
-
-def _is_informative(text: str) -> bool:
-    """Return True if the text carries enough tokens to be useful context."""
-    return len(text.split()) >= MIN_TOKENS
-
-def _resolve_input(current: str, history: list[dict]) -> str:
+def enrich_user_input(user_text, history):
     """
-    Context-window fallback logic:
-      1. Use current prompt if informative.
-      2. Else prepend previous user turn if informative.
-      3. Else prepend previous bot turn if informative.
-      4. Else use current prompt as-is.
+    Dynamically references prior conversation context to enrich brief or 
+    uninformative responses into grammatically sound sentences.
     """
-    if _is_informative(current):
-        return current
+    if not history:
+        return user_text, "current"
+        
+    user_clean = user_text.strip().lower()
+    user_words = user_clean.rstrip('.!?').split()
+    
+    # Heuristic 1: If it's an explicit question, it's informative. Skip fusion!
+    if user_text.strip().endswith('?'):
+        return user_text, "current"
+        
+    # Heuristic 2: If it already contains a subject/verb combo, it's a complete statement.
+    structural_verbs = {
+        "is", "are", "am", "was", "were", "can", "could", "will", "would", 
+        "do", "does", "did", "have", "has", "had", "go", "get", "like", "want"
+    }
+    if len(user_words) >= 3 and any(w in structural_verbs for w in user_words):
+        return user_text, "current"
+        
+    # Extract the text content of the last turn
+    last_msg = history[-1]
+    last_turn_text = last_msg.get("content", "") if isinstance(last_msg, dict) else str(last_msg)
+    context_clean = last_turn_text.strip()
+    
+    # Pronoun POV transformation map
+    pronoun_map = {
+        "your": "my", "you": "i", "yours": "mine", "yourself": "myself",
+        "my": "your", "i": "you", "mine": "yours", "myself": "yourself",
+        "u": "i", "ur": "my"
+    }
+    
+    def invert_pov(text_str):
+        words = text_str.split()
+        inverted = []
+        for w in words:
+            clean_w = re.sub(r'[^a-zA-Z\']', '', w).lower()
+            if clean_w in pronoun_map:
+                inv = pronoun_map[clean_w]
+                if w[0].isupper():
+                    inv = inv.capitalize()
+                inverted.append(inv)
+            else:
+                inverted.append(w)
+        return " ".join(inverted)
 
-    if history:
-        last = history[-1]
-        prev_user = last.get("user", "")
-        prev_bot  = last.get("bot", "")
+    # Contextual variants classification
+    yes_variants = {"yes", "yeah", "yep", "yup", "sure", "correct", "ok", "okay"}
+    no_variants = {"no", "nope", "nah", "not"}
 
-        if _is_informative(prev_user):
-            return f"{prev_user} {current}".strip()
+    # 1. HANDLE CONFIRMATIONS (e.g., Bot: "Is it raining?" -> User: "yes")
+    if user_clean.rstrip('.!?') in yes_variants:
+        clean_ctx = re.sub(r'^(yo|hey|hi|hello|please)\s+', '', context_clean, flags=re.IGNORECASE).rstrip('?')
+        return f"{user_text.strip()}, {invert_pov(clean_ctx).lower()}", "history"
 
-        if _is_informative(prev_bot):
-            return f"{prev_bot} {current}".strip()
+    # 2. HANDLE NEGATIONS (e.g., Bot: "yo enough for today" -> User: "no")
+    elif user_clean.rstrip('.!?') in no_variants:
+        clean_ctx = re.sub(r'^(yo|hey|hi|hello|please)\s+', '', context_clean, flags=re.IGNORECASE).rstrip('?')
+        inv_ctx = invert_pov(clean_ctx).lower()
+        
+        if "enough" in inv_ctx:
+            return f"{user_text.strip()}, it's not {inv_ctx}", "history"
+        return f"{user_text.strip()}, it is not the case that {inv_ctx}", "history"
 
-    # Nothing useful in history — fall back to the raw current prompt
-    return current
+    # 3. HANDLE UNINFORMATIVE SLOT-FILLING (e.g., Bot: "What day is your exam?" -> User: "wednesday")
+    else:
+        # Only slot-fill if the bot actually posed a question
+        if not last_turn_text.strip().endswith('?'):
+            return user_text, "current"
+            
+        # Strip interrogative prefix tokens to isolate the predicate
+        q_lead_ins = {"what", "when", "where", "which", "who", "why", "how", "day", "time", "date"}
+        filtered_words = [w for w in context_clean.rstrip('?').split() if w.lower() not in q_lead_ins]
+        
+        inverted_core = invert_pov(" ".join(filtered_words))
+        if inverted_core:
+            return f"{user_text.strip()} {inverted_core.lower()}", "history"
 
-# ---------------------------------------------------------------------------
+    return user_text, "current"
 
 @app.route("/")
 def index():
@@ -106,24 +148,18 @@ def index():
 def predict():
     global model, ck
 
-    # --- session id (sent by client, or fall back to Flask session) ---
-    data       = request.json
-    session_id = data.get("session_id") or session.get("sid") or "default"
-    session["sid"] = session_id
-
-    raw_sentence = data["sentence"]
-    sentence     = normalize_contractions(raw_sentence)
+    raw_sentence = request.json.get("sentence", "")
+    history      = request.json.get("history", [])
+    temperature  = float(request.json.get("temperature", 0.7))
+    beam_width   = int(request.json.get("beam_width", 3))
+    max_len      = int(request.json.get("max_len", 50))
     vocab        = ck["vocab"]
-    temperature  = float(data.get("temperature", 0.7))
-    beam_width   = int(data.get("beam_width",    3))
-    max_len      = int(data.get("max_len", 50))
 
-    # --- resolve input with context fallback ---
-    history        = _history.get(session_id, [])
-    resolved       = _resolve_input(sentence, history)
-    used_context   = resolved != sentence  # flag for debugging / frontend
+    # Dynamic evaluation and structural context fusion
+    enriched_sentence, ctx_source = enrich_user_input(raw_sentence, history)
 
-    src_indices = sentence_to_indices(resolved, ck["vocab"], ck.get("w2i"))
+    sentence = normalize_contractions(enriched_sentence)
+    src_indices = sentence_to_indices(sentence, ck["vocab"], ck.get("w2i"))
 
     if not src_indices:
         return jsonify({"response": "I didn't catch that.", "tag": "unknown", "confidence": 0.0})
@@ -143,27 +179,17 @@ def predict():
     if not response.strip():
         response = "I couldn't generate anything."
 
-    # --- update history (keep only last 1 turn) ---
-    _history[session_id] = [{"user": sentence, "bot": response}]
-
     return jsonify({
-        "tag":          "generated",
-        "confidence":   1.0,
-        "response":     response,
-        "used_context": used_context,   # optional — remove if frontend doesn't need it
-        "probs":        [],
-        "activations":  {},
-        "all_words":    vocab,
-        "tags":         [],
+        "tag":        "generated",
+        "confidence": 1.0,
+        "response":   response,
+        "probs":      [],
+        "activations": {},
+        "all_words":  vocab,
+        "tags":       [],
+        "ctx_source": ctx_source,
+        "enriched":   enriched_sentence
     })
-
-@app.route("/reset", methods=["POST"])
-def reset_history():
-    """Clear conversation history for the current session."""
-    data       = request.json or {}
-    session_id = data.get("session_id") or session.get("sid") or "default"
-    _history.pop(session_id, None)
-    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
