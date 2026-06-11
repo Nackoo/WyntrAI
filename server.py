@@ -59,29 +59,54 @@ model, ck = load()
 
 def enrich_user_input(user_text, history):
     """
-    Dynamically references prior conversation context to enrich brief or 
-    uninformative responses into grammatically sound sentences.
+    Universally links user responses back to the previous bot turn unless
+    a semantic topic pivot is detected using the model's Encoder.
     """
     if not history:
         return user_text, "current"
         
-    user_clean = user_text.strip().lower()
-    user_words = user_clean.rstrip('.!?').split()
+    user_clean = user_text.strip()
+    user_lower = user_clean.lower().rstrip('.!?')
     
-    if user_text.strip().endswith('?'):
-        return user_text, "current"
-        
-    structural_verbs = {
-        "is", "are", "am", "was", "were", "can", "could", "will", "would", 
-        "do", "does", "did", "have", "has", "had", "go", "get", "like", "want"
-    }
-    if len(user_words) >= 3 and any(w in structural_verbs for w in user_words):
-        return user_text, "current"
-        
+    # Extract the text content of the last turn
     last_msg = history[-1]
     last_turn_text = last_msg.get("content", "") if isinstance(last_msg, dict) else str(last_msg)
-    context_clean = last_turn_text.strip()
     
+    # Strip basic greetings and fillers from the context string to avoid pollution
+    context_clean = re.sub(r'^(yo|hey|hi|hello|greetings|please)\s*,?\s*', '', last_turn_text.strip(), flags=re.IGNORECASE)
+    context_clean = context_clean.rstrip('.!?')
+    
+    if not context_clean:
+        return user_text, "current"
+
+    # -------------------------------------------------------------------------
+    # NEW: SEMANTIC TOPIC PIVOT DETECTION (Reusing model.pth Encoder)
+    # -------------------------------------------------------------------------
+    def get_sentence_embedding(text):
+        token_indices = sentence_to_indices(normalize_contractions(text), ck["vocab"], ck.get("w2i"))
+        if not token_indices:
+            return None
+        tensor = torch.tensor([token_indices], dtype=torch.long)
+        with torch.no_grad():
+            # Encoder output shape: (1, seq_len, embed_dim)
+            memory = model.encoder(tensor)
+            # Mean pool along seq_len dimension to get a single (embed_dim) vector
+            return memory.mean(dim=1).squeeze(0)
+
+    user_emb = get_sentence_embedding(user_clean)
+    ctx_emb = get_sentence_embedding(context_clean)
+
+    if user_emb is not None and ctx_emb is not None:
+        # Calculate cosine similarity between current phrase and context
+        similarity = torch.nn.functional.cosine_similarity(user_emb, ctx_emb, dim=0).item()
+        
+        # NOTE: Adjust this threshold (0.25 - 0.35) based on your specific training weights
+        if similarity < 0.28:
+            # Topic has drifted significantly. Do not fuse history context!
+            return user_text, "current"
+    # -------------------------------------------------------------------------
+
+    # Pronoun POV transformation map
     pronoun_map = {
         "your": "my", "you": "i", "yours": "mine", "yourself": "myself",
         "my": "your", "i": "you", "mine": "yours", "myself": "yourself",
@@ -102,33 +127,52 @@ def enrich_user_input(user_text, history):
                 inverted.append(w)
         return " ".join(inverted)
 
+    inverted_context = invert_pov(context_clean)
+    
     yes_variants = {"yes", "yeah", "yep", "yup", "sure", "correct", "ok", "okay"}
     no_variants = {"no", "nope", "nah", "not"}
 
-    if user_clean.rstrip('.!?') in yes_variants:
-        clean_ctx = re.sub(r'^(yo|hey|hi|hello|please)\s+', '', context_clean, flags=re.IGNORECASE).rstrip('?')
-        return f"{user_text.strip()}, {invert_pov(clean_ctx).lower()}", "history"
+    # CATEGORY 1: SHORT CONFIRMATIONS (e.g., "yes")
+    if user_lower in yes_variants:
+        return f"{user_clean}, {inverted_context.lower()}", "history"
 
-    elif user_clean.rstrip('.!?') in no_variants:
-        clean_ctx = re.sub(r'^(yo|hey|hi|hello|please)\s+', '', context_clean, flags=re.IGNORECASE).rstrip('?')
-        inv_ctx = invert_pov(clean_ctx).lower()
-        
-        if "enough" in inv_ctx:
-            return f"{user_text.strip()}, it's not {inv_ctx}", "history"
-        return f"{user_text.strip()}, it is not the case that {inv_ctx}", "history"
+    # CATEGORY 2: SHORT NEGATIONS (e.g., "no")
+    if user_lower in no_variants:
+        if "enough" in inverted_context.lower():
+            return f"{user_clean}, it's not {inverted_context.lower()}", "history"
+        return f"{user_clean}, it is not the case that {inverted_context.lower()}", "history"
 
-    else:
-        if not last_turn_text.strip().endswith('?'):
-            return user_text, "current"
-            
+    # CATEGORY 3: SINGLE WORD SLOT-FILLING (e.g., "wednesday")
+    if len(user_clean.split()) == 1:
         q_lead_ins = {"what", "when", "where", "which", "who", "why", "how", "day", "time", "date"}
-        filtered_words = [w for w in context_clean.rstrip('?').split() if w.lower() not in q_lead_ins]
+        filtered_words = [w for w in inverted_context.split() if w.lower() not in q_lead_ins]
         
-        inverted_core = invert_pov(" ".join(filtered_words))
-        if inverted_core:
-            return f"{user_text.strip()} {inverted_core.lower()}", "history"
+        aux_verb = "is"
+        for v in ["is", "are", "was", "were", "has", "have", "do", "does", "did"]:
+            if v in [w.lower() for w in filtered_words]:
+                aux_verb = v
+                filtered_words = [w for w in filtered_words if w.lower() != v]
+                break
+                
+        remaining_core = " ".join(filtered_words).strip()
+        if remaining_core:
+            return f"{user_clean} {aux_verb} {remaining_core.lower()}", "history"
 
-    return user_text, "current"
+    # CATEGORY 4: UNIVERSAL STRUCTURAL LINKING (e.g., "why would i?", "what's on your mind?")
+    question_starters = {
+        "why", "how", "what", "where", "who", "when", "which",
+        "would", "could", "should", "can", "will", "shall",
+        "is", "are", "am", "was", "were", "do", "does", "did"
+    }
+    
+    user_words = user_lower.split()
+    is_question = user_clean.endswith('?') or (user_words and user_words[0] in question_starters)
+    base_text = user_clean.rstrip('?.!')
+
+    if is_question:
+        return f"{base_text} when you mentioned \"{inverted_context.lower()}\"?", "history"
+    else:
+        return f"{base_text} regarding \"{inverted_context.lower()}\"", "history"
 
 @app.route("/")
 def index():
