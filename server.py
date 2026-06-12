@@ -59,8 +59,9 @@ model, ck = load()
 
 def enrich_user_input(user_text, history):
     """
-    Links user responses to history. Short contextual responses bypass the embedding
-    guard entirely, while longer phrases use the encoder to check for topic pivots.
+    Universally links user responses back to history.
+    Traverses multi-turn structures and intelligently decides when to fuse context
+    based on linguistic anchors, even in long, complex sentences.
     """
     if not history:
         return user_text, "current"
@@ -69,29 +70,34 @@ def enrich_user_input(user_text, history):
     user_lower = user_clean.lower().rstrip('.!?')
     user_words = user_lower.split()
     
-    # Extract the text content of the last turn
-    last_msg = history[-1]
-    last_turn_text = last_msg.get("content", "") if isinstance(last_msg, dict) else str(last_msg)
-    
-    # Added \b to ensure it only strips standalone words
-    context_clean = re.sub(r'^(yo|hey|hi|hello|greetings|please)\b\s*,?\s*', '', last_turn_text.strip(), flags=re.IGNORECASE)
-    context_clean = context_clean.rstrip('.!?')
-    
-    if not context_clean:
-        return user_text, "current"
+    def get_turn_text(idx):
+        if abs(idx) <= len(history):
+            msg = history[idx]
+            txt = msg.get("content", "") if isinstance(msg, dict) else str(msg)
+            txt = re.sub(r'^(yo|hey|hi|hello|greetings|please)\s*,?\s*', '', txt.strip(), flags=re.IGNORECASE)
+            return txt.rstrip('.!?').strip()
+        return ""
 
-    # Pronoun POV transformation map
+    ctx_1 = get_turn_text(-1)  # 1 step away (Bot's last response)
+    ctx_2 = get_turn_text(-2)  # 2 steps away (User's previous message)
+    ctx_3 = get_turn_text(-3)  # 3 steps away (Bot's response before that)
+
+    context_clean = ctx_1 if ctx_1 else "conversation"
+
+    # Pronoun POV transformation map including contractions
     pronoun_map = {
         "your": "my", "you": "i", "yours": "mine", "yourself": "myself",
         "my": "your", "i": "you", "mine": "yours", "myself": "yourself",
-        "u": "i", "ur": "my"
+        "u": "i", "ur": "my",
+        "i'm": "you're", "you're": "i'm", "i've": "you've", "you've": "i've",
+        "i'll": "you'll", "you'll": "i'll", "i'd": "you'd", "you'd": "i'd"
     }
     
     def invert_pov(text_str):
         words = text_str.split()
         inverted = []
         for w in words:
-            clean_w = re.sub(r'[^a-zA-Z\']', '', w).lower()
+            clean_w = re.sub(r"[^a-zA-Z']", '', w).lower()
             if clean_w in pronoun_map:
                 inv = pronoun_map[clean_w]
                 if w[0].isupper():
@@ -101,80 +107,136 @@ def enrich_user_input(user_text, history):
                 inverted.append(w)
         return " ".join(inverted)
 
-    inverted_context = invert_pov(context_clean)
-    
-    yes_variants = {"yes", "yeah", "yep", "yup", "sure", "correct", "ok", "okay"}
+    # -------------------------------------------------------------------------
+    # DYNAMIC LINGUISTIC TENSE SHIFTER
+    # -------------------------------------------------------------------------
+    def dynamic_past_tense(text):
+        words = text.split()
+        transformed = []
+        irregular_past = {
+            "going": "went", "doing": "did", "making": "made", 
+            "thinking": "thought", "running": "ran", "eating": "ate",
+            "seeing": "saw", "buying": "bought", "coming": "came",
+            "having": "had", "getting": "got", "speaking": "spoke"
+        }
+        for w in words:
+            clean = re.sub(r"[^a-zA-Z]", "", w).lower()
+            if clean in irregular_past:
+                w = re.sub(clean, irregular_past[clean], w, flags=re.IGNORECASE)
+            elif clean.endswith("ing") and len(clean) > 4:
+                stem = clean[:-3]
+                past_form = stem[:-1] + "ied" if stem.endswith("y") else stem + "ed"
+                w = re.sub(clean, past_form, w, flags=re.IGNORECASE)
+            transformed.append(w)
+        return " ".join(transformed)
+
+    yes_variants = {"yes", "yeah", "yep", "yup", "sure", "correct", "ok", "okay", "indeed"}
     no_variants = {"no", "nope", "nah", "not"}
 
-    # -------------------------------------------------------------------------
-    # CRITICAL CONTEXT RULES: Short inputs are ALWAYS linked (No embedding check)
-    # -------------------------------------------------------------------------
-    
-    # CATEGORY 1: SHORT CONFIRMATIONS (e.g., "yes")
-    if user_lower in yes_variants:
-        return f"{user_clean}, {inverted_context.lower()}", "history"
-
-    # CATEGORY 2: SHORT NEGATIONS (e.g., "no")
-    if user_lower in no_variants:
-        if "enough" in inverted_context.lower():
-            return f"{user_clean}, it's not {inverted_context.lower()}", "history"
-        return f"{user_clean}, it is not the case that {inverted_context.lower()}", "history"
-
-    # CATEGORY 3: SINGLE WORD SLOT-FILLING (e.g., "wednesday")
-    if len(user_words) == 1:
-        q_lead_ins = {"what", "when", "where", "which", "who", "why", "how", "day", "time", "date"}
-        filtered_words = [w for w in inverted_context.split() if w.lower() not in q_lead_ins]
-        
-        aux_verb = "is"
-        for v in ["is", "are", "was", "were", "has", "have", "do", "does", "did"]:
-            if v in [w.lower() for w in filtered_words]:
-                aux_verb = v
-                filtered_words = [w for w in filtered_words if w.lower() != v]
-                break
+    # RULE A: MULTI-TURN ADMISSION TRACKING (e.g., "so you admit it")
+    if user_lower.startswith("so you admit") or user_lower.startswith("you admit"):
+        target_claim = ctx_1
+        if ctx_1.lower() in yes_variants or len(ctx_1.split()) <= 1:
+            if ctx_3:
+                target_claim = ctx_3
                 
-        remaining_core = " ".join(filtered_words).strip()
-        if remaining_core:
-            return f"{user_clean} {aux_verb} {remaining_core.lower()}", "history"
+        inverted_claim = invert_pov(target_claim)
+        base_admit = re.sub(r'\s+(it|that)$', '', user_clean, flags=re.IGNORECASE)
+        return f"{base_admit} {inverted_claim.lower()}", "history"
+
+    # RULE B: MULTI-TURN VERB CONTEXT STITCHING (e.g., "you did?")
+    if user_lower in {"you did", "you did?", "did you?", "did you"}:
+        if ctx_1.lower().startswith(("no, but", "yes, but", "but")) and ctx_2:
+            action_words = [w for w in ctx_2.lower().split() if w not in {"are", "you", "do", "did", "is", "can"}]
+            if action_words:
+                raw_action = " ".join(action_words)
+                dynamic_action = dynamic_past_tense(raw_action)
+                return f"{user_clean} {dynamic_action} {ctx_1.lower()}", "history"
+
+    # Standard Conversational Pipelines
+    inverted_context = invert_pov(context_clean)
+
+    def convert_to_declarative(text):
+        words = text.split()
+        if len(words) < 2:
+            return text
+        first_w = words[0].lower()
+        second_w = words[1].lower()
+        helpers = {"do", "does", "did", "are", "is", "was", "were", "can", "could", "would", "should"}
+        pronouns = {"i", "you", "it", "we", "they", "he", "she"}
+        if first_w in helpers and second_w in pronouns:
+            if first_w in {"are", "is", "was", "were"} and second_w == "i":
+                return f"i am {' '.join(words[2:])}"
+            return f"{words[1]} {words[0]} {' '.join(words[2:])}"
+        return text
+
+    declarative_context = convert_to_declarative(inverted_context)
+    
+    # CATEGORY 1: SHORT CONFIRMATIONS
+    if user_lower in yes_variants:
+        return f"{user_clean}, {declarative_context.lower()}", "history"
+
+    # CATEGORY 2: SHORT NEGATIONS
+    if user_lower in no_variants:
+        if "not" in declarative_context.lower() or "no" in declarative_context.lower():
+            return f"{user_clean}, {declarative_context.lower()}", "history"
+        return f"{user_clean}, it is not the case that {declarative_context.lower()}", "history"
+
+    # CATEGORY 3: SINGLE-WORD INTERROGATIVE FOLLOW-UPS
+    if len(user_words) == 1 and user_lower in {"how", "why"}:
+        ctx_words = inverted_context.lower().split()
+        if ctx_words and ctx_words[0] == "you're":
+            return f"{user_clean} are you {' '.join(ctx_words[1:])}?", "history"
+        return f"{user_clean} so when you mentioned \"{inverted_context.lower()}\"?", "history"
 
     # -------------------------------------------------------------------------
-    # CATEGORY 4: MULTI-WORD PHRASES (Apply Structural & Embedding Checks)
+    # ADVANCED TOPIC SHIFT & ANAPHORA ANCHOR ENGINE (Category 4 Refinement)
     # -------------------------------------------------------------------------
-    question_starters = {
-        "why", "how", "what", "where", "who", "when", "which",
-        "would", "could", "should", "can", "will", "shall",
-        "is", "are", "am", "was", "were", "do", "does", "did"
+    question_starters = {"why", "how", "what", "where", "who", "when", "which", "would", "could", "should", "can"}
+    is_question = user_clean.endswith('?') or (user_words and user_words[0] in question_starters)
+    base_text = user_clean.rstrip('?.!')
+
+    # Words that explicitly signal the user is pointing backwards to old context
+    backward_anchors = {
+        "that", "this", "it", "those", "these", "them", "there", "here",
+        "said", "mentioned", "stated", "claimed", "told", "asked", "implied",
+        "agree", "disagree", "wrong", "right", "correct", "true", "false",
+        "instead", "mean", "meaning", "except", "besides", "though", "however"
     }
     
-    is_question = user_clean.endswith('?') or (user_words and user_words[0] in question_starters)
+    # Phrases that explicitly chain conversations together
+    continuation_signals = {
+        "tell me more", "explain", "elaborate", "why so", "in what way", 
+        "are you sure", "prove it", "not really", "makes sense"
+    }
+
+    # Extract clean alphabetic words to check against anchor dictionary
+    clean_user_words = [re.sub(r"[^a-zA-Z]", "", w).lower() for w in user_words]
     
-    # Core structural follow-ups (like "why would i") are safe from the embedding check
-    is_structural_followup = user_words and user_words[0] in {"why", "how"}
+    has_backward_anchor = any(word in backward_anchors for word in clean_user_words)
+    has_continuation_signal = any(signal in user_lower for signal in continuation_signals)
+    
+    # Direct Bot Targets: Does the user explicitly mention the bot's persona?
+    targets_bot_persona = any(p in clean_user_words for p in {"you", "your", "yours", "yourself"}) or "you're" in user_words
 
-    if not is_structural_followup:
-        # Only run your 486-sample encoder embedding calculation on long statement shifts
-        def get_sentence_embedding(text):
-            token_indices = sentence_to_indices(normalize_contractions(text), ck["vocab"], ck.get("w2i"))
-            if not token_indices:
-                return None
-            tensor = torch.tensor([token_indices], dtype=torch.long)
-            with torch.no_grad():
-                memory = model.encoder(tensor)
-                return memory.mean(dim=1).squeeze(0)
+    # Evaluates if this long prompt is structurally dependent on what came before
+    is_context_dependent = has_backward_anchor or has_continuation_signal or targets_bot_persona
 
-        user_emb = get_sentence_embedding(user_clean)
-        ctx_emb = get_sentence_embedding(context_clean)
+    # ROUTING BREAKPOINTS
+    if len(user_words) > 4:
+        # If it's a long sentence and does NOT link back semantically -> Pure Topic Shift
+        if not is_context_dependent:
+            return user_text, "current"
 
-        if user_emb is not None and ctx_emb is not None:
-            similarity = torch.nn.functional.cosine_similarity(user_emb, ctx_emb, dim=0).item()
-            # If similarity is totally dead on a long sentence statement, treat it as a hard topic pivot
-            if similarity < 0.25:
-                return user_text, "current"
-
-    # Apply the structural text bridge
-    base_text = user_clean.rstrip('?.!')
+    # FUSION ENGINE FOR VERIFIED HISTORICAL LINKS
     if is_question:
+        # Avoid forcing fusion onto long, clear informational questions
+        if len(user_words) > 5 and user_words[0] in {"what", "where", "who", "when"} and not is_context_dependent:
+            return user_text, "current"
+            
         return f"{base_text} when you mentioned \"{inverted_context.lower()}\"?", "history"
     else:
+        # If it's a long statement but verified dependent, fuse it cleanly using 'regarding'
         return f"{base_text} regarding \"{inverted_context.lower()}\"", "history"
     
 
