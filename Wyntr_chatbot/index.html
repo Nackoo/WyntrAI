@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WyntrAI</title>
+  <title>WyntrAI V.486</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
-.chat-sidebar,body{flex-direction:column}.chat-sidebar .panel,.layout-header{border-bottom:1px solid var(--border);display:flex}*,::after,::before{box-sizing:border-box;margin:0;padding:0}.ctrl-label-row,.panel-title{margin-bottom:4px;font-weight:600}:root{--bg:#000000;--surface:#080808;--surface2:#101010;--border:#2f3336;--accent:#7c6bff;--accent2:#ff6b9d;--accent3:#6bffd8;--text:#e8e8ff;--muted:#6b6b8a;--font-text:BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--font-mono:monospace;--font-display:'Syne',sans-serif}::-webkit-scrollbar{width:7px}::-webkit-scrollbar-thumb{background-color:var(--border);border-radius:10px}body::-webkit-scrollbar{width:0}body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;min-height:100vh;display:flex;overflow:hidden}.layout-header{height:48px;align-items:center;padding:0 16px;background:var(--surface);z-index:10}.logo{font-family:var(--font-display);font-weight:800;font-size:25px;letter-spacing:-.5px;color:var(--accent);cursor:pointer}.logo span{color:#fff}.layout-body{flex:1;display:flex;position:relative}.chat-page{display:flex;width:100%;height:calc(100vh - 48px)}.chat-main{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);background:0 0}.chat-history{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px}.msg-row{display:flex;width:100%;animation:.2s fadeIn}.msg-row.user{justify-content:flex-end}.msg-bubble{max-width:70%;padding:10px 20px;border-radius:14px;line-height:1.5;font-size:14px;position:relative;font-family:var(--font-text)}.msg-row.user .msg-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:2px;box-shadow:0 4px 12px #7c6bff20}.msg-row.bot .msg-bubble{background:var(--surface);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:2px}.chat-input-area{padding:16px 24px 24px;background:#000}.chat-sidebar,.input-wrapper,.thinking-bubble{background:var(--surface)}.input-wrapper{display:flex;border:1px solid var(--border);border-radius:12px;padding:6px;align-items:center}.input-wrapper button,.input-wrapper input{color:#fff;border:none;font-family:var(--font-text)}.input-wrapper input{flex:1;background:0 0;outline:0;font-size:14px;padding:10px}.input-wrapper button{background:var(--accent);border-radius:8px;padding:10px 16px;font-weight:600;cursor:pointer;transition:background .2s}.input-wrapper button:hover{background:#6b5ae6}.chat-sidebar{width:350px;height:100%;display:flex;overflow-y:auto;font-family:var(--font-text)}.chat-sidebar .panel{padding:20px;flex-direction:column;gap:12px;background:#000}.panel-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}.ctrl-label-row{display:flex;justify-content:space-between;font-size:15px}.ctrl-desc{font-size:13px;color:var(--muted);line-height:1.4;margin-top:4px}input[type=range]{accent-color:var(--accent);background:var(--surface2);height:5px;border-radius:3px;outline:0;width:100%;margin:10px 0}.sidebar-close-btn{display:none}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.thinking-bubble{display:flex;align-items:center;gap:10px;padding:12px 18px;border:1px solid var(--border);border-radius:14px 14px 14px 2px;animation:.2s fadeIn}.thinking-dots{display:flex;align-items:center;gap:5px}.thinking-dots span{width:5px;height:5px;border-radius:50%;background:var(--text);display:block;animation:1.2s ease-in-out infinite dotPulse}.thinking-dots span:first-child{animation-delay:0s}.thinking-dots span:nth-child(2){animation-delay:.2s}.thinking-dots span:nth-child(3){animation-delay:.4s}@keyframes dotPulse{0%,100%,60%{transform:scale(1);opacity:.4}30%{transform:scale(1.5);opacity:1}}.thinking-label{font-family:var(--font-text);font-size:13px;font-weight:500;background:linear-gradient(90deg,var(--muted) 0,var(--text) 40%,#fff 60%,var(--muted) 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:2s linear infinite shimmer}@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}@media (max-width:768px){body{overflow:auto}.chat-page{flex-direction:column;height:auto}.chat-main{min-height:calc(100vh - 48px);max-height:calc(100vh - 48px);border-right:none}.msg-bubble{max-width:100%}.chat-sidebar{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0d0d11;z-index:1000;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4, 0, .2, 1);box-shadow:5px 0 25px rgba(0,0,0,.5)}.chat-input-area{padding:16px 14px 14px}.chat-sidebar.open{transform:translateX(0)}.sidebar-close-btn{display:block;background:0 0;border:none;color:var(--text);font-size:28px;cursor:pointer;position:absolute;top:12px;right:16px;line-height:1;z-index:11}.chat-sidebar .panel{padding-top:50px}.chat-history{padding:20px 14px}}.bg-space{position:fixed;inset:0;width:100%;height:100%;border:none;z-index:-1;pointer-events:none}@media(max-width:700px){.bg-space{display:none}}
+.layout-body,.msg-bubble,.msg-row{position:relative}.chat-sidebar,body{flex-direction:column}.chat-sidebar .panel,.layout-header{border-bottom:1px solid var(--border);display:flex}*,::after,::before{box-sizing:border-box;margin:0;padding:0}.ctrl-label-row,.panel-title{margin-bottom:4px;font-weight:600}:root{--bg:#000000;--surface:#080808;--surface2:#101010;--border:#2f3336;--accent:#7c6bff;--accent2:#ff6b9d;--accent3:#6bffd8;--text:#e8e8ff;--muted:#6b6b8a;--font-text:BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;--font-mono:monospace;--font-display:'Syne',sans-serif}::-webkit-scrollbar{width:7px}.chat-page,.msg-row{width:100%;display:flex}::-webkit-scrollbar-thumb{background-color:var(--border);border-radius:10px}body::-webkit-scrollbar{width:0}body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;min-height:100vh;display:flex;overflow:hidden}.layout-header{height:48px;align-items:center;padding:0 16px;background:var(--surface);z-index:10}.logo{font-family:var(--font-display);font-weight:800;font-size:25px;letter-spacing:-.5px;color:var(--accent);cursor:pointer}#replyBanner,.chat-sidebar,.ctx-enriched,.msg-bubble,.thinking-label{font-family:var(--font-text)}#replyBanner,.ctrl-desc,.panel-title,.reply-btn{color:var(--muted)}.logo span{color:#fff}.layout-body{flex:1;display:flex}.chat-page{height:calc(100vh - 48px)}.chat-main{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);background:0 0}.chat-history{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px}.msg-row{align-items:center;animation:.2s fadeIn}.reply-btn{opacity:0;cursor:pointer;transition:.2s;padding:0 10px;display:flex;align-items:center}.msg-row:hover .reply-btn{opacity:1}.reply-btn:hover{color:var(--accent);transform:scale(1.1)}.reply-btn svg{width:16px;height:16px;fill:currentColor}.msg-row.bot{justify-content:flex-start}.msg-row.bot .reply-btn{order:2}.msg-row.bot .msg-bubble,.msg-row.user .reply-btn{order:1}.msg-row.user{justify-content:flex-end}.msg-row.user .msg-bubble{order:2;background:var(--accent);color:#fff;border-bottom-right-radius:2px;box-shadow:0 4px 12px #7c6bff20}.msg-bubble{max-width:70%;padding:10px 20px;border-radius:14px;line-height:1.5;font-size:14px}.msg-row.bot .msg-bubble{background:var(--surface);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:2px}.chat-input-area{padding:16px 24px 24px;background:#000}.chat-sidebar,.input-wrapper,.thinking-bubble{background:var(--surface)}.input-wrapper{display:flex;border:1px solid var(--border);border-radius:12px;padding:6px;align-items:center}.input-wrapper button,.input-wrapper input{color:#fff;border:none;font-family:var(--font-text)}.input-wrapper input{flex:1;background:0 0;outline:0;font-size:14px;padding:10px}.input-wrapper button{background:var(--accent);border-radius:8px;padding:10px 16px;font-weight:600;cursor:pointer;transition:background .2s}.input-wrapper button:hover{background:#6b5ae6}.chat-sidebar{width:350px;height:100%;display:flex;overflow-y:auto}.chat-sidebar .panel{padding:20px;flex-direction:column;gap:12px;background:#000}.panel-title{font-size:11px;text-transform:uppercase;letter-spacing:1px}.ctrl-label-row{display:flex;justify-content:space-between;font-size:15px}#replyBanner,.sidebar-close-btn{display:none}.ctrl-desc{font-size:13px;line-height:1.4;margin-top:4px}input[type=range]{accent-color:var(--accent);background:var(--surface2);height:5px;border-radius:3px;outline:0;width:100%;margin:10px 0}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.thinking-bubble{display:flex;align-items:center;gap:10px;padding:12px 18px;border:1px solid var(--border);border-radius:14px 14px 14px 2px;animation:.2s fadeIn}.thinking-dots{display:flex;align-items:center;gap:5px}.thinking-dots span{width:5px;height:5px;border-radius:50%;background:var(--text);display:block;animation:1.2s ease-in-out infinite dotPulse}.thinking-dots span:first-child{animation-delay:0s}.thinking-dots span:nth-child(2){animation-delay:.2s}.thinking-dots span:nth-child(3){animation-delay:.4s}@keyframes dotPulse{0%,100%,60%{transform:scale(1);opacity:.4}30%{transform:scale(1.5);opacity:1}}.thinking-label{font-size:13px;font-weight:500;background:linear-gradient(90deg,var(--muted) 0,var(--text) 40%,#fff 60%,var(--muted) 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:2s linear infinite shimmer}@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}@media (max-width:768px){body{overflow:auto}.chat-page{flex-direction:column;height:auto}.chat-main{min-height:calc(100vh - 48px);max-height:calc(100vh - 48px);border-right:none}.msg-bubble{max-width:100%}.chat-sidebar{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0d0d11;z-index:1000;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4, 0, .2, 1);box-shadow:5px 0 25px rgba(0,0,0,.5)}.chat-input-area{padding:16px 14px 14px}.chat-sidebar.open{transform:translateX(0)}.sidebar-close-btn{display:block;background:0 0;border:none;color:var(--text);font-size:28px;cursor:pointer;position:absolute;top:12px;right:16px;line-height:1;z-index:11}.chat-sidebar .panel{padding-top:50px}.chat-history{padding:20px 14px}}.bg-space{position:fixed;inset:0;width:100%;height:100%;border:none;z-index:-1;pointer-events:none}@media(max-width:700px){.bg-space{display:none}}.ctx-enriched{font-size:13px;color:#9a9ab8;margin-top:3px;max-width:350px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative}#replyBanner{align-items:center;justify-content:space-between;background:var(--surface2);border-left:4px solid var(--accent);padding:8px 12px;margin-bottom:8px;border-radius:4px;font-size:12px}
   </style>
 </head>
 <iframe class="bg-space" src="https://wyntx.netlify.app/space.html"></iframe>
@@ -21,10 +21,16 @@
       <div class="chat-main">
         <div class="chat-history" id="chatHistory">
           <div class="msg-row bot">
-            <div class="msg-bubble">System ready. Powered by Attention-based Sequence Generation.</div>
+            <div class="msg-bubble">System ready. Powered by WyntX.</div>
           </div>
         </div>
         <div class="chat-input-area">
+          <div id="replyBanner">
+              <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">
+                  ↳ Replying to: <span id="replyContent" style="color: var(--text);"></span>
+              </div>
+              <div onclick="clearReply()" style="cursor: pointer; font-size: 18px; line-height: 1; font-weight: bold; padding: 0 4px;">×</div>
+          </div>
           <div class="input-wrapper">
             <input type="text" id="inputText" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMessage()">
             <button onclick="sendMessage()">Send</button>
@@ -35,7 +41,7 @@
       <div class="chat-sidebar" id="chatSidebar">
         <button class="sidebar-close-btn" onclick="toggleSidebar(false)">&times;</button>
         <div class="panel">
-          <p class="panel-title">Generation Core</p>
+          <p class="panel-title">Wyntr AI V.486 — Generation Core</p>
           
           <div>
             <div class="ctrl-label-row">
@@ -72,11 +78,56 @@
   </main>
 
   <script>
+    // Global state to track active reply
+    window.activeReplyText = null;
+
+    function clearReply() {
+        document.getElementById('replyBanner').style.display = 'none';
+        window.activeReplyText = null;
+    }
+
+    function appendMessageBubble(text, sender) {
+        const history = document.getElementById('chatHistory');
+        const row = document.createElement('div');
+        row.className = `msg-row ${sender}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.innerHTML = text; 
+
+        // The SVG Reply Button
+        const replyBtn = document.createElement('div');
+        replyBtn.className = 'reply-btn';
+        replyBtn.title = 'Reply explicitly';
+        replyBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>`;
+        
+        replyBtn.onclick = () => {
+            const cleanText = bubble.innerText.replace(/\n/g, ' ').trim();
+            document.getElementById('replyContent').textContent = cleanText;
+            document.getElementById('replyBanner').style.display = 'flex';
+            document.getElementById('inputText').focus(); // Fixed mismatch to correct target element: inputText
+            window.activeReplyText = cleanText;
+        };
+
+        if (sender === 'bot') {
+            row.appendChild(bubble);
+            row.appendChild(replyBtn);
+        } else {
+            row.appendChild(replyBtn);
+            row.appendChild(bubble);
+        }
+
+        history.appendChild(row);
+        history.scrollTop = history.scrollHeight;
+        return row;
+    }
+
     const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
       ? 'http://127.0.0.1:7860'
       : window.location.origin;
 
     let lastSentMessage = "";
+    let chatHistoryLog = []; 
 
     function toggleSidebar(open) {
       if (window.innerWidth <= 768) {
@@ -90,56 +141,99 @@
     }
 
     async function sendMessage() {
-      const inputEl = document.getElementById('inputText');
-      const txt = inputEl.value.trim();
-      if (!txt) return;
+        const input = document.getElementById('inputText');
+        const message = input.value.trim();
+        if (!message) return;
 
-      lastSentMessage = txt;
-      inputEl.value = '';
+        let displayMessage = message;
+        let payloadMessage = message;
+        let isExplicitReply = false; // Track if the user used the reply button
 
-      appendMessageBubble(txt, 'user');
+        if (window.activeReplyText) {
+            displayMessage = `
+                <div style="font-size: 12px; background: rgba(0,0,0,0.3);padding:10px 13px;margin:-10px -20px 6px -20px;border-radius:14px 14px 0 0;">
+                    ↳ ${window.activeReplyText}
+                </div>
+                ${message}
+            `;
+            payloadMessage = `[Regarding what was mentioned: "${window.activeReplyText}"] ${message}`;
+            isExplicitReply = true; // Mark it true
+            clearReply();
+        }
 
-      const thinkingRow = showThinking();
+        appendMessageBubble(displayMessage, 'user');
+        input.value = '';
 
-      const tempVal   = parseFloat(document.getElementById('paramTemp').value);
-      const beamVal   = parseInt(document.getElementById('paramBeam').value);
-      const maxLenVal = parseInt(document.getElementById('paramMaxLen').value);
+        const currentPayloadHistory = [...chatHistoryLog];
+        chatHistoryLog.push({ role: "user", content: payloadMessage });
 
-      try {
-        const response = await fetch(`${SERVER}/predict`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sentence: txt,
-            temperature: tempVal,
-            beam_width: beamVal,
-            max_len: maxLenVal
-          })
-        });
+        const thinkingRow = showThinking();
 
-        if (!response.ok) throw new Error("Network offline");
-        const payload = await response.json();
+        const tempVal   = parseFloat(document.getElementById('paramTemp').value);
+        const beamVal   = parseInt(document.getElementById('paramBeam').value);
+        const maxLenVal = parseInt(document.getElementById('paramMaxLen').value);
 
-        let rawResponse = payload.response || "";
-        let cleanResponse = rawResponse.replace(/([!?.,])/g, ' $1 ');
+        try {
+          const response = await fetch(`${SERVER}/predict`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sentence: payloadMessage,
+              history: currentPayloadHistory,
+              temperature: tempVal,
+              beam_width: beamVal,
+              max_len: maxLenVal
+            })
+          });
 
-        cleanResponse = cleanResponse.replace(/\s+([!?.,])/g, '$1')
-                                     .replace(/\b(.+?)(?:\s+\1\b)+/gi, '$1')
-                                     .replace(/([!?.,])\s*/g, '$1 ')
-                                     .replace(/\s+\./g, '.')
-                                     .replace(/(.)\1{2,}/gi, '$1$1')
-                                     .replace(/(\w)\s’\s(\w)/g, "$1’$2")
-                                     .replace(/(\w)\s'\s(\w)/g, "$1'$2")
-                                     .trim();                        
+          if (!response.ok) throw new Error("Network offline");
+          const payload = await response.json();
 
-        removeThinking(thinkingRow);
-        appendMessageBubble(cleanResponse, 'bot');
+          // GUARD: Only show ambient fusion feedback if the user DID NOT use the explicit UI reply button
+          if (payload.ctx_source && payload.ctx_source !== 'current' && payload.enriched !== payloadMessage) {
+            if (!isExplicitReply) {
+              appendContextBubble(payload.ctx_source, payload.enriched, thinkingRow);
+            }
+          }
 
-      } catch (err) {
-        removeThinking(thinkingRow);
-        appendMessageBubble("System communication interface error.", 'bot');
-        console.error(err);
+          let rawResponse = payload.response || "";
+          let cleanResponse = rawResponse.replace(/([!?.,])/g, ' $1 ');
+
+          cleanResponse = cleanResponse.replace(/\s+([!?.,])/g, '$1')
+                                      .replace(/\b(.+?)(?:\s+\1\b)+/gi, '$1')
+                                      .replace(/([!?.,])\s*/g, '$1 ')
+                                      .replace(/\s+\./g, '.')
+                                      .replace(/(.)\1{2,}/gi, '$1$1')
+                                      .replace(/(\w)\s’\s(\w)/g, "$1’$2")
+                                      .replace(/(\w)\s'\s(\w)/g, "$1'$2")
+                                      .trim();                        
+
+          removeThinking(thinkingRow);
+          appendMessageBubble(cleanResponse, 'bot');
+          chatHistoryLog.push({ role: "bot", content: cleanResponse });
+
+        } catch (err) {
+          removeThinking(thinkingRow);
+          appendMessageBubble("System communication interface error.", 'bot');
+          console.error(err);
+        }
+    }
+
+    function appendContextBubble(source, enriched, referenceNode) {
+      const history = document.getElementById('chatHistory');
+      const row = document.createElement('div');
+      
+      row.className = 'msg-row user'; 
+      row.style.marginTop = '-12px'; 
+      
+      row.innerHTML = `<div class="ctx-enriched">↳ ${enriched}</div>`;
+        
+      if (referenceNode && referenceNode.parentNode) {
+        history.insertBefore(row, referenceNode);
+      } else {
+        history.appendChild(row);
       }
+      history.scrollTop = history.scrollHeight;
     }
 
     function showThinking() {
@@ -155,15 +249,8 @@
     function removeThinking(row) {
       if (row && row.parentNode) row.parentNode.removeChild(row);
     }
-
-    function appendMessageBubble(text, sender) {
-      const history = document.getElementById('chatHistory');
-      const row = document.createElement('div');
-      row.className = `msg-row ${sender}`;
-      row.innerHTML = `<div class="msg-bubble">${text}</div>`;
-      history.appendChild(row);
-      history.scrollTop = history.scrollHeight;
-    }
+    
+    // Cleaned up: Duplicate base function definition removed to ensure the reply SVG renderer runs perfectly.
   </script>
 </body>
 </html>
