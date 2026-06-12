@@ -57,11 +57,12 @@ def load():
 
 model, ck = load()
 
+
 def enrich_user_input(user_text, history):
     """
     Universally links user responses back to history.
-    Traverses multi-turn structures and intelligently decides when to fuse context
-    based on linguistic anchors, even in long, complex sentences.
+    Traverses multi-turn structures and uses strict context-dependency routing
+    to ensure long new topics pass through untouched, while long follow-ups fuse perfectly.
     """
     if not history:
         return user_text, "current"
@@ -107,9 +108,7 @@ def enrich_user_input(user_text, history):
                 inverted.append(w)
         return " ".join(inverted)
 
-    # -------------------------------------------------------------------------
     # DYNAMIC LINGUISTIC TENSE SHIFTER
-    # -------------------------------------------------------------------------
     def dynamic_past_tense(text):
         words = text.split()
         transformed = []
@@ -176,67 +175,91 @@ def enrich_user_input(user_text, history):
     if user_lower in yes_variants:
         return f"{user_clean}, {declarative_context.lower()}", "history"
 
-    # CATEGORY 2: SHORT NEGATIONS
     if user_lower in no_variants:
-        if "not" in declarative_context.lower() or "no" in declarative_context.lower():
-            return f"{user_clean}, {declarative_context.lower()}", "history"
-        return f"{user_clean}, it is not the case that {declarative_context.lower()}", "history"
+        # Strip out leading filler agreement flags (like "yes", "ok") from the old context
+        clean_decl = re.sub(r'^(yes|yeah|yep|yup|ok|okay|sure|indeed)\s*,?\s*', '', declarative_context, flags=re.IGNORECASE).strip()
+        
+        # Case A: Dynamic contraction negation ("it's cool" -> "it's not cool")
+        if clean_decl.lower().startswith("it's "):
+            negated = "it's not " + clean_decl[5:]
+            return f"{user_clean}, {negated.lower()}", "history"
+            
+        # Case B: Standard declarative negation ("it is cool" -> "it is not cool")
+        elif clean_decl.lower().startswith("it is "):
+            negated = "it is not " + clean_decl[6:]
+            return f"{user_clean}, {negated.lower()}", "history"
+            
+        # Case C: First person negation ("i am fine" -> "i am not fine")
+        elif clean_decl.lower().startswith("i am "):
+            negated = "i am not " + clean_decl[5:]
+            return f"{user_clean}, {negated.lower()}", "history"
+        
+        # Fallback safety checks
+        if "not" in clean_decl.lower() or "no" in clean_decl.lower():
+            return f"{user_clean}, {clean_decl.lower()}", "history"
+            
+        return f"{user_clean}, it's not true that {clean_decl.lower()}", "history"
 
     # CATEGORY 3: SINGLE-WORD INTERROGATIVE FOLLOW-UPS
     if len(user_words) == 1 and user_lower in {"how", "why"}:
         ctx_words = inverted_context.lower().split()
         if ctx_words and ctx_words[0] == "you're":
             return f"{user_clean} are you {' '.join(ctx_words[1:])}?", "history"
-        return f"{user_clean} so when you mentioned \"{inverted_context.lower()}\"?", "history"
+        return f"{user_clean} so when you said \"{inverted_context.lower()}\"?", "history"
 
-    # -------------------------------------------------------------------------
-    # ADVANCED TOPIC SHIFT & ANAPHORA ANCHOR ENGINE (Category 4 Refinement)
-    # -------------------------------------------------------------------------
+    # HIGH-PRECISION CONTEXT DEPENDENCY ENGINE (Category 4 Refinement)
     question_starters = {"why", "how", "what", "where", "who", "when", "which", "would", "could", "should", "can"}
     is_question = user_clean.endswith('?') or (user_words and user_words[0] in question_starters)
     base_text = user_clean.rstrip('?.!')
 
-    # Words that explicitly signal the user is pointing backwards to old context
-    backward_anchors = {
-        "that", "this", "it", "those", "these", "them", "there", "here",
-        "said", "mentioned", "stated", "claimed", "told", "asked", "implied",
-        "agree", "disagree", "wrong", "right", "correct", "true", "false",
-        "instead", "mean", "meaning", "except", "besides", "though", "however"
-    }
-    
-    # Phrases that explicitly chain conversations together
-    continuation_signals = {
-        "tell me more", "explain", "elaborate", "why so", "in what way", 
-        "are you sure", "prove it", "not really", "makes sense"
-    }
-
-    # Extract clean alphabetic words to check against anchor dictionary
+    # Extract alphanumeric lower tokens for precise filtering
     clean_user_words = [re.sub(r"[^a-zA-Z]", "", w).lower() for w in user_words]
-    
-    has_backward_anchor = any(word in backward_anchors for word in clean_user_words)
+
+    # Explicit phrases signaling follow-ups or meta-dialogue
+    continuation_signals = {
+        "tell me more", "explain why", "elaborate on", "why so", "in what way", 
+        "are you sure", "prove it", "not really", "makes sense", "what do you mean"
+    }
     has_continuation_signal = any(signal in user_lower for signal in continuation_signals)
+
+    # Conversational speech feedback anchors
+    feedback_markers = {
+        "said", "mentioned", "stated", "claimed", "told", "asked", "implied",
+        "disagree", "agree", "contradict", "conflict", "earlier", "previous", "before"
+    }
+    has_feedback_marker = any(word in feedback_markers for word in clean_user_words)
     
-    # Direct Bot Targets: Does the user explicitly mention the bot's persona?
+    # Question target evaluation
+    has_why_how = "why" in clean_user_words or "how" in clean_user_words
     targets_bot_persona = any(p in clean_user_words for p in {"you", "your", "yours", "yourself"}) or "you're" in user_words
 
-    # Evaluates if this long prompt is structurally dependent on what came before
-    is_context_dependent = has_backward_anchor or has_continuation_signal or targets_bot_persona
+    # BASELINE STRUCTURAL ROUTING DECISION
+    is_context_dependent = False
 
-    # ROUTING BREAKPOINTS
-    if len(user_words) > 4:
-        # If it's a long sentence and does NOT link back semantically -> Pure Topic Shift
-        if not is_context_dependent:
-            return user_text, "current"
-
-    # FUSION ENGINE FOR VERIFIED HISTORICAL LINKS
-    if is_question:
-        # Avoid forcing fusion onto long, clear informational questions
-        if len(user_words) > 5 and user_words[0] in {"what", "where", "who", "when"} and not is_context_dependent:
-            return user_text, "current"
-            
-        return f"{base_text} when you mentioned \"{inverted_context.lower()}\"?", "history"
+    if len(user_words) > 6:
+        # Long inputs must meet strict criteria to prove they are tracking past context
+        if has_feedback_marker:
+            is_context_dependent = True
+        elif has_why_how and targets_bot_persona:
+            is_context_dependent = True
+        elif "mean" in clean_user_words or "meaning" in clean_user_words:
+            is_context_dependent = True
+        elif has_continuation_signal:
+            is_context_dependent = True
     else:
-        # If it's a long statement but verified dependent, fuse it cleanly using 'regarding'
+        # Short phrases (<= 6 words) use standard open-ended structural hooks
+        backward_anchors = {"that", "this", "it", "those", "these", "them", "there", "here"}
+        has_backward_anchor = any(word in backward_anchors for word in clean_user_words)
+        is_context_dependent = has_backward_anchor or has_continuation_signal or targets_bot_persona or is_question
+
+    # EXECUTE ROUTING STRATEGY
+    if not is_context_dependent:
+        return user_text, "current"  # <-- PASSED THROUGH CLEANLY (Topic Shift Guardrail)
+
+    # If verified dependent, execute context fusion formatting
+    if is_question:
+        return f"{base_text} when you said \"{inverted_context.lower()}\"?", "history"
+    else:
         return f"{base_text} regarding \"{inverted_context.lower()}\"", "history"
     
 
