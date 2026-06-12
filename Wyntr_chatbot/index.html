@@ -78,7 +78,6 @@
   </main>
 
   <script>
-    // Global state to track active reply
     window.activeReplyText = null;
 
     function clearReply() {
@@ -95,7 +94,6 @@
         bubble.className = 'msg-bubble';
         bubble.innerHTML = text; 
 
-        // The SVG Reply Button
         const replyBtn = document.createElement('div');
         replyBtn.className = 'reply-btn';
         replyBtn.title = 'Reply explicitly';
@@ -105,7 +103,7 @@
             const cleanText = bubble.innerText.replace(/\n/g, ' ').trim();
             document.getElementById('replyContent').textContent = cleanText;
             document.getElementById('replyBanner').style.display = 'flex';
-            document.getElementById('inputText').focus(); // Fixed mismatch to correct target element: inputText
+            document.getElementById('inputText').focus(); 
             window.activeReplyText = cleanText;
         };
 
@@ -147,7 +145,7 @@
 
         let displayMessage = message;
         let payloadMessage = message;
-        let isExplicitReply = false; // Track if the user used the reply button
+        let isExplicitReply = false; 
 
         if (window.activeReplyText) {
             displayMessage = `
@@ -157,7 +155,7 @@
                 ${message}
             `;
             payloadMessage = `[Regarding what was mentioned: "${window.activeReplyText}"] ${message}`;
-            isExplicitReply = true; // Mark it true
+            isExplicitReply = true; 
             clearReply();
         }
 
@@ -189,7 +187,6 @@
           if (!response.ok) throw new Error("Network offline");
           const payload = await response.json();
 
-          // GUARD: Only show ambient fusion feedback if the user DID NOT use the explicit UI reply button
           if (payload.ctx_source && payload.ctx_source !== 'current' && payload.enriched !== payloadMessage) {
             if (!isExplicitReply) {
               appendContextBubble(payload.ctx_source, payload.enriched, thinkingRow);
