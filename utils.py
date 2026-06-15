@@ -58,12 +58,14 @@ PAD_TOKEN = "<PAD>"
 SOS_TOKEN = "<SOS>"   
 EOS_TOKEN = "<EOS>"  
 UNK_TOKEN = "<UNK>"  
+SEP_TOKEN = "<SEP>"
 
-SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, UNK_TOKEN]
+SPECIAL_TOKENS = [PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, UNK_TOKEN, SEP_TOKEN]
 PAD_IDX = 0
 SOS_IDX = 1
 EOS_IDX = 2
 UNK_IDX = 3
+SEP_IDX = 4
 
 
 def tokenize(sentence: str) -> list[str]:
@@ -87,7 +89,7 @@ def build_vocab(sentences: list[str]) -> list[str]:
 
 
 def build_w2i(vocab: list[str]) -> dict[str, int]:
-    """Build and return a word→index dict. Call once and reuse."""
+    """Build and return a word → index dict. Call once and reuse."""
     return {w: i for i, w in enumerate(vocab)}
 
 
