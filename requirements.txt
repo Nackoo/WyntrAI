@@ -4,3 +4,4 @@ gunicorn
 numpy
 requests
 beautifulsoup4
+torch==2.2.2

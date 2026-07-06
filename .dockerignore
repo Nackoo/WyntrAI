@@ -1,0 +1,9 @@
+Exported chats/
+Training/
+Versions/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.git/
+.gitignore
