@@ -165,7 +165,7 @@ class Seq2Seq(nn.Module):
             for score, tokens in beams:
                 if tokens[-1] == self.eos_idx:
                     seq = tokens[1:-1]
-                    norm_score = score / max(len(seq), 1) ** length_penalty
+                    norm_score = score / ((5 + len(seq)) / 6) ** length_penalty
                     completed.append((norm_score, seq))
                     continue
 
@@ -194,3 +194,116 @@ class Seq2Seq(nn.Module):
             completed.sort(key=lambda x: x[0], reverse=True)
             return completed[0][1]
         return []
+
+    # ------------------------------------------------------------------
+    # Streaming generation: yields one dict per decoding step so a caller
+    # (e.g. an SSE endpoint) can surface the model's raw per-step token
+    # probabilities live, as a stand-in for "chain of thought". The final
+    # yield always has "done": True and carries the finished token list.
+    # ------------------------------------------------------------------
+    def generate_stream(self, src_tensor, max_len: int = 40, temperature: float = 1.0,
+                         beam_width: int = 1, top_k: int = 5):
+        self.eval()
+        with torch.no_grad():
+            src_pad_mask = self._padding_mask(src_tensor, self.pad_idx)
+            memory = self.encoder(src_tensor, src_key_padding_mask=src_pad_mask)
+
+            if beam_width <= 1:
+                yield from self._greedy_generate_stream(memory, src_pad_mask, max_len, temperature, top_k)
+            else:
+                yield from self._beam_generate_stream(memory, src_pad_mask, max_len, beam_width, top_k=top_k)
+
+    def _greedy_generate_stream(self, memory, src_pad_mask, max_len, temperature, top_k=5):
+        device = memory.device
+        tokens = [self.sos_idx]
+        output_tokens = []
+
+        for step in range(max_len):
+            tgt = torch.tensor([tokens], dtype=torch.long, device=device)
+            tgt_mask = self._causal_mask(tgt.size(1), device)
+            logits = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_pad_mask)
+            next_logits = logits[:, -1, :]
+
+            probs = torch.softmax(next_logits / max(temperature, 1e-8), dim=-1).squeeze(0)
+            k = min(top_k, probs.size(-1))
+            top_probs, top_idxs = probs.topk(k)
+
+            candidates = [
+                {"idx": int(i), "prob": round(float(p), 4)}
+                for p, i in zip(top_probs.tolist(), top_idxs.tolist())
+            ]
+
+            if temperature <= 0.0:
+                next_token = next_logits.argmax(dim=-1).item()
+            else:
+                next_token = self._sample_token(next_logits, temperature, top_p=0.92)
+
+            yield {
+                "step": step,
+                "mode": "greedy",
+                "candidates": candidates,
+                "chosen_idx": int(next_token),
+                "is_eos": next_token == self.eos_idx,
+            }
+
+            if next_token == self.eos_idx:
+                break
+            tokens.append(next_token)
+            output_tokens.append(next_token)
+
+        yield {"done": True, "tokens": output_tokens}
+
+    def _beam_generate_stream(self, memory, src_pad_mask, max_len, beam_width,
+                               length_penalty: float = 0.7, top_k: int = 5):
+        device = memory.device
+        beams = [(0.0, [self.sos_idx])]
+        completed = []
+
+        for step in range(max_len):
+            candidates = []
+            step_view = []
+
+            for b_i, (score, tokens) in enumerate(beams):
+                if tokens[-1] == self.eos_idx:
+                    seq = tokens[1:-1]
+                    norm_score = score / ((5 + len(seq)) / 6) ** length_penalty
+                    completed.append((norm_score, seq))
+                    continue
+
+                tgt = torch.tensor([tokens], dtype=torch.long, device=device)
+                tgt_mask = self._causal_mask(tgt.size(1), device)
+                logits = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_pad_mask)
+                log_probs = torch.log_softmax(logits[:, -1, :], dim=-1).squeeze(0)
+                top_probs, top_idxs = log_probs.topk(beam_width)
+
+                step_view.append({
+                    "beam": b_i,
+                    "score": round(float(score), 4),
+                    "top": [
+                        {"idx": int(i), "logprob": round(float(p), 4)}
+                        for p, i in list(zip(top_probs.tolist(), top_idxs.tolist()))[:top_k]
+                    ],
+                })
+
+                for prob, idx in zip(top_probs.tolist(), top_idxs.tolist()):
+                    candidates.append((score + prob, tokens + [idx]))
+
+            yield {"step": step, "mode": "beam", "beams": step_view}
+
+            if not candidates:
+                break
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            beams = candidates[:beam_width]
+
+        for score, tokens in beams:
+            seq = tokens[1:]
+            if seq and seq[-1] == self.eos_idx:
+                seq = seq[:-1]
+            norm_score = score / max(len(seq), 1) ** length_penalty
+            completed.append((norm_score, seq))
+
+        if completed:
+            completed.sort(key=lambda x: x[0], reverse=True)
+            yield {"done": True, "tokens": completed[0][1]}
+        else:
+            yield {"done": True, "tokens": []}

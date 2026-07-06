@@ -1,6 +1,6 @@
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, Response
 from flask_cors import CORS
-import torch, os, re
+import torch, os, re, json
 
 from model import Encoder, Decoder, Seq2Seq
 from utils import sentence_to_indices, indices_to_sentence, normalize_contractions
@@ -149,6 +149,82 @@ def predict():
         "ctx_source": ctx_source,
         "enriched":   indices_to_sentence(src_indices, vocab) # Debug look
     })
+
+@app.route("/predict_stream", methods=["POST"])
+def predict_stream():
+    """
+    Same generation as /predict, but streams one Server-Sent Event per
+    decoding step, exposing the model's real per-step token probabilities
+    (its 'raw mathematical vector thoughts') as it decodes — plus a final
+    event carrying the finished response.
+    """
+    global model, ck
+
+    raw_sentence = request.json.get("sentence", "")
+    history      = request.json.get("history", [])
+    temperature  = float(request.json.get("temperature", 0.7))
+    beam_width   = int(request.json.get("beam_width", 3))
+    max_len      = int(request.json.get("max_len", 50))
+    vocab        = ck["vocab"]
+    w2i          = ck.get("w2i")
+
+    context_sentence, ctx_source = determine_context_routing(raw_sentence, history)
+
+    sentence_clean = normalize_contractions(raw_sentence)
+    src_indices = sentence_to_indices(sentence_clean, vocab, w2i)
+
+    if context_sentence and ctx_source == "history":
+        context_clean = normalize_contractions(context_sentence)
+        context_indices = sentence_to_indices(context_clean, vocab, w2i)
+        src_indices = src_indices + [4] + context_indices  # 4 is our SEP_IDX
+
+    def word(idx):
+        return vocab[idx] if 0 <= idx < len(vocab) else "<UNK>"
+
+    def event_stream():
+        if not src_indices:
+            payload = {
+                "done": True,
+                "tokens": [],
+                "response": "I didn't catch that.",
+                "ctx_source": ctx_source,
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+            return
+
+        src_tensor = torch.tensor([src_indices], dtype=torch.long)
+
+        for event in model.generate_stream(
+            src_tensor, max_len=max_len, temperature=temperature, beam_width=beam_width
+        ):
+            if event.get("done"):
+                output_indices = event["tokens"]
+                event["response"] = indices_to_sentence(output_indices, vocab)
+                event["ctx_source"] = ctx_source
+                event["enriched"] = indices_to_sentence(src_indices, vocab)
+                yield f"data: {json.dumps(event)}\n\n"
+                break
+
+            if "candidates" in event:
+                for c in event["candidates"]:
+                    c["word"] = word(c["idx"])
+            if "beams" in event:
+                for b in event["beams"]:
+                    for c in b["top"]:
+                        c["word"] = word(c["idx"])
+
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return Response(
+        event_stream(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
