@@ -59,7 +59,6 @@ def build_vocab(sentences: list[str], min_freq: int = 3, max_size: int = 15000) 
     for s in sentences:
         counter.update(tokenize(s))
     
-    # Filter by occurrence frequency, keeping the most common ones up to max_size
     valid_words = [w for w, c in counter.most_common(max_size) if c >= min_freq]
     return SPECIAL_TOKENS + sorted(valid_words)
 

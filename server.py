@@ -76,17 +76,14 @@ def determine_context_routing(user_text, history):
             return msg.get("content", "") if isinstance(msg, dict) else str(msg)
         return ""
 
-    ctx_1 = get_turn_text(-1)  # Bot's last response
+    ctx_1 = get_turn_text(-1)  
     
-    # Simple, high-precision dependency triggers (No grammar mutations needed!)
     question_starters = {"why", "how", "what", "where", "who", "when", "which", "would", "could", "should", "can"}
     is_question = user_clean.endswith('?') or (user_words and user_words[0] in question_starters)
     
-    # Short words like "why", "how", "yes", "no" absolutely need context
     if len(user_words) <= 3:
         return ctx_1, "history"
         
-    # Checking for explicit continuation signs or pronouns pointing backward
     clean_user_words = [re.sub(r"[^a-zA-Z]", "", w).lower() for w in user_words]
     backward_anchors = {"that", "this", "it", "those", "these", "them"}
     
@@ -106,26 +103,22 @@ def predict():
 
     raw_sentence = request.json.get("sentence", "")
     history      = request.json.get("history", [])
-    temperature  = float(request.json.get("temperature", 0.85))
+    temperature  = float(request.json.get("temperature", 0.8))
     beam_width   = int(request.json.get("beam_width", 1))
     max_len      = int(request.json.get("max_len", 50))
     vocab        = ck["vocab"]
     w2i          = ck.get("w2i")
 
-    # Determine if we need to track history
     context_sentence, ctx_source = determine_context_routing(raw_sentence, history)
 
-    # 1. Tokenize primary user prompt
     sentence_clean = normalize_contractions(raw_sentence)
     src_indices = sentence_to_indices(sentence_clean, vocab, w2i)
 
-    # 2. If context is related, cleanly attach it using our structural SEP token
     if context_sentence and ctx_source == "history":
         context_clean = normalize_contractions(context_sentence)
         context_indices = sentence_to_indices(context_clean, vocab, w2i)
         
-        # Structure: [User Tokens] + [SEP] + [Context Tokens]
-        src_indices = src_indices + [4] + context_indices  # 4 is our SEP_IDX
+        src_indices = src_indices + [4] + context_indices  
 
     if not src_indices:
         return jsonify({"response": "I didn't catch that.", "tag": "unknown", "confidence": 0.0})
@@ -147,7 +140,7 @@ def predict():
         "confidence": 1.0,
         "response":   response,
         "ctx_source": ctx_source,
-        "enriched":   indices_to_sentence(src_indices, vocab) # Debug look
+        "enriched":   indices_to_sentence(src_indices, vocab)
     })
 
 @app.route("/predict_stream", methods=["POST"])
@@ -162,7 +155,7 @@ def predict_stream():
 
     raw_sentence = request.json.get("sentence", "")
     history      = request.json.get("history", [])
-    temperature  = float(request.json.get("temperature", 0.85))
+    temperature  = float(request.json.get("temperature", 0.8))
     beam_width   = int(request.json.get("beam_width", 1))
     max_len      = int(request.json.get("max_len", 50))
     vocab        = ck["vocab"]
@@ -176,7 +169,7 @@ def predict_stream():
     if context_sentence and ctx_source == "history":
         context_clean = normalize_contractions(context_sentence)
         context_indices = sentence_to_indices(context_clean, vocab, w2i)
-        src_indices = src_indices + [4] + context_indices  # 4 is our SEP_IDX
+        src_indices = src_indices + [4] + context_indices  
 
     def word(idx):
         return vocab[idx] if 0 <= idx < len(vocab) else "<UNK>"

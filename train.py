@@ -10,9 +10,7 @@ from utils import (
     collate_fn, PAD_IDX, SOS_IDX, EOS_IDX,
 )
 
-# ------------------------------------------------------------------
-# 1. AUTO-LOCATING CORNELL CORPUS DATA PATHS
-# ------------------------------------------------------------------
+
 def find_cornell_files():
     """Finds the dataset files even if nested in a subfolder."""
     lines_name = "movie_lines.txt"
@@ -22,7 +20,6 @@ def find_cornell_files():
     if os.path.exists(lines_name) and os.path.exists(conv_name):
         return lines_name, conv_name
         
-    # Scan subdirectories (like 'cornell movie-dialogs corpus/')
     for root, dirs, files in os.walk('.'):
         if lines_name in files and conv_name in files:
             return os.path.join(root, lines_name), os.path.join(root, conv_name)
@@ -33,11 +30,8 @@ def find_cornell_files():
     )
 
 lines_path, conv_path = find_cornell_files()
-print(f"🎯 Successfully located dataset inputs:\n -> {lines_path}\n -> {conv_path}\n")
+print(f"Successfully located dataset inputs:\n -> {lines_path}\n -> {conv_path}\n")
 
-# ------------------------------------------------------------------
-# 2. MULTI-TURN CORPUS PARSER
-# ------------------------------------------------------------------
 def load_cornell_multiturn_pairs(l_path, c_path):
     print("Parsing Cornell Corpus into Multi-Turn sequences...")
     lines = {}
@@ -54,7 +48,6 @@ def load_cornell_multiturn_pairs(l_path, c_path):
             if len(parts) == 4:
                 line_ids = ast.literal_eval(parts[3].strip())
                 
-                # Step through sequences chronologically
                 for i in range(len(line_ids) - 1):
                     if i == 0:
                         src = lines.get(line_ids[i])
@@ -72,15 +65,12 @@ def load_cornell_multiturn_pairs(l_path, c_path):
 raw_data = load_cornell_multiturn_pairs(lines_path, conv_path)
 print(f"Extracted {len(raw_data):,} sequence segments.")
 
-# ------------------------------------------------------------------
-# 3. FILTERING & VOCABULARY GENERATION
-# ------------------------------------------------------------------
+
 MAX_SEQ_LEN = 25
 filtered_samples = []
-all_text_for_vocab = ["<SEP>"] # Force the structural separation token into the vocabulary
+all_text_for_vocab = ["<SEP>"]
 
 for item, trg, has_context in raw_data:
-    # Use standard whitespace splitting to safely check lengths without custom tokenizer imports
     trg_toks = trg.split()
     if not (0 < len(trg_toks) <= (MAX_SEQ_LEN - 2)):
         continue
@@ -99,18 +89,14 @@ for item, trg, has_context in raw_data:
 
 print(f"Filtered down to {len(filtered_samples):,} multi-turn compatible samples.")
 
-# Rebuild context-aware vocabulary base
 vocab = build_vocab(all_text_for_vocab, min_freq=3, max_size=15000)
 w2i = build_w2i(vocab)
 vocab_size = len(vocab)
 
-# Dynamically locate or assign our structural context boundary token
 SEP_IDX = w2i.get("<SEP>", 3) 
 print(f"Final Multi-Turn Vocabulary Size: {vocab_size} (SEP Token ID: {SEP_IDX})")
 
-# ------------------------------------------------------------------
-# 4. CONTEXT-AWARE DATASET PIPELINE
-# ------------------------------------------------------------------
+
 class MultiTurnDataset(Dataset):
     def __init__(self, samples, vocab, w2i, sep_idx):
         self.samples = []
@@ -121,7 +107,6 @@ class MultiTurnDataset(Dataset):
                 curr_user, prev_bot = item
                 u_idx = sentence_to_indices(curr_user, vocab, w2i)
                 b_idx = sentence_to_indices(prev_bot, vocab, w2i)
-                # Concatenate: User Prompt + [SEP] + Previous Bot Response
                 src_indices = u_idx + [sep_idx] + b_idx
             else:
                 src_indices = sentence_to_indices(item, vocab, w2i)
@@ -142,9 +127,7 @@ dataset = MultiTurnDataset(filtered_samples, vocab, w2i, SEP_IDX)
 BATCH_SIZE = 64
 loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn, pin_memory=True)
 
-# ------------------------------------------------------------------
-# 5. MODEL ARCHITECTURE SETUP
-# ------------------------------------------------------------------
+
 EMBED_DIM       = 256 
 HIDDEN_SIZE     = 512 
 NUM_LAYERS      = 3   
@@ -165,9 +148,6 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1)
 criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 
-# ------------------------------------------------------------------
-# 6. TRAINING LOOP
-# ------------------------------------------------------------------
 print("\nCommencing Multi-Turn Context Training Loop…")
 
 for epoch in range(1, EPOCHS + 1):
@@ -203,9 +183,6 @@ for epoch in range(1, EPOCHS + 1):
 
 print("\nMulti-Turn Training Complete!")
 
-# ------------------------------------------------------------------
-# 7. SAVE MODEL INTEGRITY
-# ------------------------------------------------------------------
 torch.save(
     {
         "encoder_state":   encoder.state_dict(),

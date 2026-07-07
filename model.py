@@ -113,7 +113,7 @@ class Seq2Seq(nn.Module):
 
         if beam_width <= 1:
             return self._greedy_generate(memory, src_pad_mask, max_len, temperature)
-        return self._beam_generate(memory, src_pad_mask, max_len, beam_width)
+        return self._beam_generate(memory, src_pad_mask, max_len, beam_width, temperature=temperature)
 
     def _greedy_generate(self, memory, src_pad_mask, max_len, temperature):
         device = memory.device
@@ -124,7 +124,10 @@ class Seq2Seq(nn.Module):
             tgt = torch.tensor([tokens], dtype=torch.long, device=device)
             tgt_mask = self._causal_mask(tgt.size(1), device)
             logits = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_pad_mask)
-            next_logits = logits[:, -1, :]
+            next_logits = logits[:, -1, :].clone()
+
+            for token in set(output_tokens):
+                next_logits[0, token] -= 2.5 
 
             if temperature <= 0.0:
                 next_token = next_logits.argmax(dim=-1).item()
@@ -155,7 +158,7 @@ class Seq2Seq(nn.Module):
         sampled = torch.multinomial(sorted_probs, 1).item()
         return sorted_idx[sampled].item()
 
-    def _beam_generate(self, memory, src_pad_mask, max_len, beam_width, length_penalty: float = 0.7):
+    def _beam_generate(self, memory, src_pad_mask, max_len, beam_width, temperature: float = 1.0, length_penalty: float = 0.7):
         device = memory.device
         beams = [(0.0, [self.sos_idx])]
         completed = []
@@ -172,8 +175,21 @@ class Seq2Seq(nn.Module):
                 tgt = torch.tensor([tokens], dtype=torch.long, device=device)
                 tgt_mask = self._causal_mask(tgt.size(1), device)
                 logits = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_pad_mask)
-                log_probs = torch.log_softmax(logits[:, -1, :], dim=-1).squeeze(0)
-                top_probs, top_idxs = log_probs.topk(beam_width)
+                next_logits = logits[:, -1, :].clone()
+                
+                generated_so_far = tokens[1:]
+                for token in set(generated_so_far):
+                    next_logits[0, token] -= 2.5
+
+                next_logits = next_logits / max(temperature, 1e-8)
+                log_probs = torch.log_softmax(next_logits, dim=-1).squeeze(0)
+                
+                if temperature <= 0.2:
+                    top_probs, top_idxs = log_probs.topk(beam_width)
+                else:
+                    probs = torch.exp(log_probs)
+                    top_idxs = torch.multinomial(probs, num_samples=min(beam_width * 2, probs.size(-1)), replacement=False)
+                    top_probs = log_probs[top_idxs]
 
                 for prob, idx in zip(top_probs.tolist(), top_idxs.tolist()):
                     candidates.append((score + prob, tokens + [idx]))
@@ -195,14 +211,7 @@ class Seq2Seq(nn.Module):
             return completed[0][1]
         return []
 
-    # ------------------------------------------------------------------
-    # Streaming generation: yields one dict per decoding step so a caller
-    # (e.g. an SSE endpoint) can surface the model's raw per-step token
-    # probabilities live, as a stand-in for "chain of thought". The final
-    # yield always has "done": True and carries the finished token list.
-    # ------------------------------------------------------------------
-    def generate_stream(self, src_tensor, max_len: int = 40, temperature: float = 1.0,
-                         beam_width: int = 1, top_k: int = 5):
+    def generate_stream(self, src_tensor, max_len: int = 40, temperature: float = 1.0, beam_width: int = 1, top_k: int = 5):
         self.eval()
         with torch.no_grad():
             src_pad_mask = self._padding_mask(src_tensor, self.pad_idx)
@@ -211,7 +220,7 @@ class Seq2Seq(nn.Module):
             if beam_width <= 1:
                 yield from self._greedy_generate_stream(memory, src_pad_mask, max_len, temperature, top_k)
             else:
-                yield from self._beam_generate_stream(memory, src_pad_mask, max_len, beam_width, top_k=top_k)
+                yield from self._beam_generate_stream(memory, src_pad_mask, max_len, beam_width, temperature=temperature, top_k=top_k)
 
     def _greedy_generate_stream(self, memory, src_pad_mask, max_len, temperature, top_k=5):
         device = memory.device
@@ -222,7 +231,10 @@ class Seq2Seq(nn.Module):
             tgt = torch.tensor([tokens], dtype=torch.long, device=device)
             tgt_mask = self._causal_mask(tgt.size(1), device)
             logits = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_pad_mask)
-            next_logits = logits[:, -1, :]
+            next_logits = logits[:, -1, :].clone()
+
+            for token in set(output_tokens):
+                next_logits[0, token] -= 2.5
 
             probs = torch.softmax(next_logits / max(temperature, 1e-8), dim=-1).squeeze(0)
             k = min(top_k, probs.size(-1))
@@ -253,8 +265,7 @@ class Seq2Seq(nn.Module):
 
         yield {"done": True, "tokens": output_tokens}
 
-    def _beam_generate_stream(self, memory, src_pad_mask, max_len, beam_width,
-                               length_penalty: float = 0.7, top_k: int = 5):
+    def _beam_generate_stream(self, memory, src_pad_mask, max_len, beam_width, temperature: float = 1.0, length_penalty: float = 0.7, top_k: int = 5):
         device = memory.device
         beams = [(0.0, [self.sos_idx])]
         completed = []
@@ -273,8 +284,21 @@ class Seq2Seq(nn.Module):
                 tgt = torch.tensor([tokens], dtype=torch.long, device=device)
                 tgt_mask = self._causal_mask(tgt.size(1), device)
                 logits = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_pad_mask)
-                log_probs = torch.log_softmax(logits[:, -1, :], dim=-1).squeeze(0)
-                top_probs, top_idxs = log_probs.topk(beam_width)
+                next_logits = logits[:, -1, :].clone()
+                
+                generated_so_far = tokens[1:]
+                for token in set(generated_so_far):
+                    next_logits[0, token] -= 2.5
+
+                next_logits = next_logits / max(temperature, 1e-8)
+                log_probs = torch.log_softmax(next_logits, dim=-1).squeeze(0)
+                
+                if temperature <= 0.2:
+                    top_probs, top_idxs = log_probs.topk(beam_width)
+                else:
+                    probs = torch.exp(log_probs)
+                    top_idxs = torch.multinomial(probs, num_samples=min(beam_width * 2, probs.size(-1)), replacement=False)
+                    top_probs = log_probs[top_idxs]
 
                 step_view.append({
                     "beam": b_i,
