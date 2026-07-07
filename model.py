@@ -129,7 +129,7 @@ class Seq2Seq(nn.Module):
             if temperature <= 0.0:
                 next_token = next_logits.argmax(dim=-1).item()
             else:
-                next_token = self._sample_token(next_logits, temperature, top_p=0.92)
+                next_token = self._sample_token(next_logits, temperature, top_p=0.80)
 
             if next_token == self.eos_idx:
                 break

@@ -106,8 +106,8 @@ def predict():
 
     raw_sentence = request.json.get("sentence", "")
     history      = request.json.get("history", [])
-    temperature  = float(request.json.get("temperature", 0.7))
-    beam_width   = int(request.json.get("beam_width", 3))
+    temperature  = float(request.json.get("temperature", 0.85))
+    beam_width   = int(request.json.get("beam_width", 1))
     max_len      = int(request.json.get("max_len", 50))
     vocab        = ck["vocab"]
     w2i          = ck.get("w2i")
@@ -162,8 +162,8 @@ def predict_stream():
 
     raw_sentence = request.json.get("sentence", "")
     history      = request.json.get("history", [])
-    temperature  = float(request.json.get("temperature", 0.7))
-    beam_width   = int(request.json.get("beam_width", 3))
+    temperature  = float(request.json.get("temperature", 0.85))
+    beam_width   = int(request.json.get("beam_width", 1))
     max_len      = int(request.json.get("max_len", 50))
     vocab        = ck["vocab"]
     w2i          = ck.get("w2i")

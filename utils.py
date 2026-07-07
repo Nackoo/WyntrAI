@@ -4,53 +4,26 @@ utils.py — tokenization, vocabulary, and tensor helpers for the seq2seq model.
 
 import re
 import torch
+from collections import Counter
 
 def normalize_contractions(text):
     """
     Expands common informal contractions to a standard format.
     """
     contraction_map = {
-        "whats": "what's",
-        "im": "i'm",
-        "youre": "you're",
-        "youve": "you've",
-        "youll": "you'll",
-        "youd": "you'd",
-        "theyre": "they're",
-        "theyve": "they've",
-        "theyll": "they'll",
-        "theyd": "they'd",
-        "weve": "we've",
-        "wed": "we'd",
-        "ive": "i've",
-        "id": "i'd",
-        "shouldnt": "shouldn't",
-        "shouldve": "should've",
-        "couldnt": "couldn't",
-        "couldve": "could've",
-        "cant": "can't",
-        "wont": "won't",
-        "dont": "don't",
-        "wasnt": "wasn't",
-        "werent": "weren't",
-        "arent": "aren't",
-        "hasnt": "hasn't",
-        "havent": "haven't",
-        "hadnt": "hadn't",
-        "wouldnt": "wouldn't",
-        "wouldve": "would've",
-        "didnt": "didn't",
-        "doesnt": "doesn't",
-        "isnt": "isn't",
-        "its": "it's",
-        "thats": "that's",
-        "theres": "there's",
-        "lets": "let's",
+        "whats": "what's", "im": "i'm", "youre": "you're", "youve": "you've",
+        "youll": "you'll", "youd": "you'd", "theyre": "they're", "theyve": "they've",
+        "theyll": "they'll", "theyd": "they'd", "weve": "we've", "wed": "we'd",
+        "ive": "i've", "id": "i'd", "shouldnt": "shouldn't", "shouldve": "should've",
+        "couldnt": "couldn't", "couldve": "could've", "cant": "can't", "wont": "won't",
+        "dont": "don't", "wasnt": "wasn't", "werent": "weren't", "arent": "aren't",
+        "hasnt": "hasn't", "havent": "haven't", "hadnt": "hadn't", "wouldnt": "wouldn't",
+        "wouldve": "would've", "didnt": "didn't", "doesnt": "doesn't", "isnt": "isn't",
+        "its": "it's", "thats": "that's", "theres": "there's", "lets": "let's",
     }
     
     words = text.split()
     normalized = [contraction_map.get(w.lower(), w) for w in words]
-    
     return " ".join(normalized)
 
 
@@ -77,15 +50,18 @@ def tokenize(sentence: str) -> list[str]:
     return re.findall(r"[a-z0-9]+(?:'[a-z]+)*|[^a-z0-9\s]", sentence)
 
 
-def build_vocab(sentences: list[str]) -> list[str]:
+def build_vocab(sentences: list[str], min_freq: int = 3, max_size: int = 15000) -> list[str]:
     """
-    Build a vocabulary list from a list of sentences in a single pass.
-    Returns: SPECIAL_TOKENS + sorted unique words.
+    Build a vocabulary list ignoring words that appear fewer than min_freq times,
+    capped at max_size total tokens.
     """
-    words: set[str] = set()
+    counter = Counter()
     for s in sentences:
-        words.update(tokenize(s))
-    return SPECIAL_TOKENS + sorted(words)
+        counter.update(tokenize(s))
+    
+    # Filter by occurrence frequency, keeping the most common ones up to max_size
+    valid_words = [w for w, c in counter.most_common(max_size) if c >= min_freq]
+    return SPECIAL_TOKENS + sorted(valid_words)
 
 
 def build_w2i(vocab: list[str]) -> dict[str, int]:
@@ -95,10 +71,7 @@ def build_w2i(vocab: list[str]) -> dict[str, int]:
 
 def sentence_to_indices(sentence: str, vocab: list[str],
                          w2i: dict | None = None) -> list[int]:
-    """
-    Convert a sentence to token indices.
-    Pass a pre-built w2i to avoid rebuilding it on every call.
-    """
+    """Convert a sentence to token indices."""
     if w2i is None:
         w2i = build_w2i(vocab)
     return [w2i.get(w, UNK_IDX) for w in tokenize(sentence)]
@@ -113,7 +86,7 @@ def indices_to_sentence(indices: list[int], vocab: list[str]) -> str:
 
 def encode_with_sos_eos(sentence: str, vocab: list[str],
                          w2i: dict | None = None) -> list[int]:
-    """Encode with SOS prepended and EOS appended (decoder target input)."""
+    """Encode with SOS prepended and EOS appended."""
     return [SOS_IDX] + sentence_to_indices(sentence, vocab, w2i) + [EOS_IDX]
 
 
@@ -124,10 +97,7 @@ def pad_sequence(seq: list[int], max_len: int,
 
 
 def collate_fn(batch, pad_idx: int = PAD_IDX):
-    """
-    DataLoader collate: pad src and trg to the longest sequence in the batch.
-    batch: list of (src_tensor, trg_tensor)
-    """
+    """DataLoader collate: pad src and trg to the longest sequence in the batch."""
     src_seqs, trg_seqs = zip(*batch)
     max_src = max(s.size(0) for s in src_seqs)
     max_trg = max(t.size(0) for t in trg_seqs)
