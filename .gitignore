@@ -1,4 +1,1 @@
-.dockerignore
-.gitattributes
-Dockerfile
 __pycache__

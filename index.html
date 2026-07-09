@@ -255,7 +255,6 @@
                                       .replace(/(\w)\s'\s(\w)/g, "$1'$2")
                                       .trim();
 
-          // Resolve final token metrics
           const promptTokens = (finalPayload && finalPayload.prompt_tokens) ? finalPayload.prompt_tokens : estimatedPromptTokens;
           const genTokens = (finalPayload && finalPayload.gen_tokens) ? finalPayload.gen_tokens : thoughtLines.length;
           const totalTokens = promptTokens + genTokens;
@@ -303,7 +302,6 @@
       return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     }
 
-    // Turns one raw generation-step event into a readable line of text/HTML.
     function renderThoughtStep(evt) {
       if (evt.mode === 'greedy') {
         const chosen = evt.candidates.find(c => c.idx === evt.chosen_idx);
@@ -336,17 +334,13 @@
       }
     }
 
-    // Attaches the step-by-step log and token metrics inside a hidden container (.msg-details)
-    // Both only appear when clicking the finished message item!
     function attachThoughtDetails(botRow, thoughtLines, tokens) {
       const bubble = botRow.querySelector('.msg-bubble');
       if (!bubble) return;
 
-      // Create unified container for both thought steps and token stats, hidden by default
       const detailsContainer = document.createElement('div');
       detailsContainer.className = 'msg-details';
 
-      // 1. Add thought log inside details container
       if (thoughtLines.length) {
         const log = document.createElement('div');
         log.className = 'thought-log';
@@ -354,7 +348,6 @@
         detailsContainer.appendChild(log);
       }
 
-      // 2. Add Token Counter Bar inside details container
       if (tokens) {
         const meta = document.createElement('div');
         meta.className = 'token-meta';
@@ -365,18 +358,14 @@
         detailsContainer.appendChild(meta);
       }
 
-      // Append container to bubble if there's anything to show
       if (detailsContainer.children.length > 0) {
-        // Prevent clicks inside the details (like highlighting or scrolling logs) from closing it
         detailsContainer.addEventListener('click', (e) => e.stopPropagation());
         bubble.appendChild(detailsContainer);
 
-        // 3. Click bubble to toggle visibility of both reasoning and token stats
         bubble.style.cursor = 'pointer';
         bubble.title = 'Click to show/hide reasoning steps and token metrics';
         
         bubble.addEventListener('click', () => {
-          // Prevent toggling if the user is selecting/highlighting text
           if (window.getSelection().toString().length > 0) return;
           const isHidden = (detailsContainer.style.display === '' || detailsContainer.style.display === 'none');
           detailsContainer.style.display = isHidden ? 'block' : 'none';

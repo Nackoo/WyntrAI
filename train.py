@@ -1,5 +1,4 @@
 import ast
-import os
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -10,27 +9,10 @@ from utils import (
     collate_fn, PAD_IDX, SOS_IDX, EOS_IDX,
 )
 
+lines_path = "movie_lines.txt"
+conv_path = "movie_conversations.txt"
 
-def find_cornell_files():
-    """Finds the dataset files even if nested in a subfolder."""
-    lines_name = "movie_lines.txt"
-    conv_name = "movie_conversations.txt"
-    
-    # Check current directory first
-    if os.path.exists(lines_name) and os.path.exists(conv_name):
-        return lines_name, conv_name
-        
-    for root, dirs, files in os.walk('.'):
-        if lines_name in files and conv_name in files:
-            return os.path.join(root, lines_name), os.path.join(root, conv_name)
-            
-    raise FileNotFoundError(
-        "Could not find 'movie_lines.txt' or 'movie_conversations.txt'. "
-        "Please ensure the Cornell dataset is uploaded and unzipped!"
-    )
-
-lines_path, conv_path = find_cornell_files()
-print(f"Successfully located dataset inputs:\n -> {lines_path}\n -> {conv_path}\n")
+print(f"Using dataset inputs:\n -> {lines_path}\n -> {conv_path}\n")
 
 def load_cornell_multiturn_pairs(l_path, c_path):
     print("Parsing Cornell Corpus into Multi-Turn sequences...")
