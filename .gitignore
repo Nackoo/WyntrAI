@@ -1,2 +1,4 @@
-movie_lines.txt
-movie_conversations.txt
+.dockerignore
+.gitattributes
+Dockerfile
+__pycache__
